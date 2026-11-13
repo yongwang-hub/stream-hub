@@ -1,11 +1,18 @@
 <script lang="ts">
   import { api } from '../api';
+  import Icon from '../ui/Icon.svelte';
+  import Button from '../ui/Button.svelte';
+  import { labelClass } from '../ui/classes';
 
   interface Props {
     onDone: (token: string) => void;
     onCancel: () => void;
   }
   let { onDone, onCancel }: Props = $props();
+
+  // 深色玻璃卡片上的输入框，单独定义以免与浅色主题的 inputClass 冲突。
+  const darkInput =
+    'w-full rounded-lg border border-white/15 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-400 transition-colors focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400/20';
 
   let oldPassword = $state('');
   let newPassword = $state('');
@@ -36,36 +43,53 @@
   }
 </script>
 
-<div class="auth-wrap">
-  <div class="card">
-    <h2>首次登录 · 修改密码</h2>
-    <p class="hint">出于安全要求，必须先设置新密码才能使用控制台。改密后旧 token 会立即失效。</p>
-
-    <div class="note" style="margin-bottom: 16px">
-      改密成功后服务端会重签 token，前端自动替换并把 SSE 连接切到新 token。
-    </div>
-
-    {#if error}<div class="alert" style="margin-bottom: 14px">{error}</div>{/if}
-
-    <form class="stack" onsubmit={submit}>
-      <div class="field">
-        <label for="old">当前密码</label>
-        <input id="old" type="password" bind:value={oldPassword} autocomplete="current-password" />
+<div class="auth-bg">
+  <main class="flex flex-1 items-center justify-center px-6 pb-10">
+    <form
+      class="w-full max-w-[420px] rounded-2xl border border-white/15 bg-slate-950/75 p-8 text-slate-100 shadow-2xl backdrop-blur-xl ui-fade-in"
+      onsubmit={submit}
+    >
+      <div class="mb-6 flex items-center gap-3">
+        <div class="grid h-10 w-10 place-items-center rounded-xl bg-primary text-primary-foreground">
+          <Icon name="lock" size={18} />
+        </div>
+        <div>
+          <h2 class="text-lg font-semibold">首次登录 · 修改密码</h2>
+          <p class="text-xs text-slate-400">设置新密码后才能使用控制台</p>
+        </div>
       </div>
-      <div class="field">
-        <label for="new">新密码</label>
-        <input id="new" type="password" bind:value={newPassword} autocomplete="new-password" />
+
+      <div class="rounded-lg border border-sky-400/20 bg-sky-400/10 px-3 py-2 text-xs text-sky-200">
+        改密成功后服务端会重签 token，旧 token 立即失效。
       </div>
-      <div class="field">
-        <label for="confirm">确认新密码</label>
-        <input id="confirm" type="password" bind:value={confirm} autocomplete="new-password" />
+
+      {#if error}
+        <div class="mt-4 rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+          {error}
+        </div>
+      {/if}
+
+      <div class="mt-5 space-y-4">
+        <div>
+          <label class={labelClass} for="old">当前密码</label>
+          <input id="old" class={darkInput} type="password" bind:value={oldPassword} autocomplete="current-password" />
+        </div>
+        <div>
+          <label class={labelClass} for="new">新密码</label>
+          <input id="new" class={darkInput} type="password" bind:value={newPassword} autocomplete="new-password" placeholder="至少 6 位" />
+        </div>
+        <div>
+          <label class={labelClass} for="confirm">确认新密码</label>
+          <input id="confirm" class={darkInput} type="password" bind:value={confirm} autocomplete="new-password" />
+        </div>
       </div>
-      <div class="inline">
-        <button class="btn primary" type="submit" disabled={busy}>
+
+      <div class="mt-6 flex gap-2">
+        <Button type="submit" class="flex-1" disabled={busy}>
           {busy ? '提交中…' : '保存并进入'}
-        </button>
-        <button class="btn ghost" type="button" onclick={onCancel}>取消登录</button>
+        </Button>
+        <Button variant="outline" onclick={onCancel}>取消登录</Button>
       </div>
     </form>
-  </div>
+  </main>
 </div>

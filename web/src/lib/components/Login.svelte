@@ -1,5 +1,7 @@
 <script lang="ts">
   import { api } from '../api';
+  import Icon from '../ui/Icon.svelte';
+  import Button from '../ui/Button.svelte';
 
   interface Props {
     onLogin: (token: string, mustChange: boolean) => void;
@@ -32,249 +34,75 @@
   }
 </script>
 
-<div class="login">
-  <header class="login-brand">
-    <div class="brand-mark">S</div>
-    <span class="brand-name">stream-hub</span>
-    <span class="brand-divider"></span>
-    <span class="brand-sub">流媒体分发控制台</span>
+<div class="auth-bg">
+  <header class="flex items-center gap-3 p-6 md:px-10">
+    <div class="grid h-9 w-9 place-items-center rounded-xl bg-primary text-sm font-bold text-primary-foreground shadow-lg">
+      S
+    </div>
+    <span class="text-base font-bold tracking-wide text-white">stream-hub</span>
+    <span class="hidden h-4 w-px bg-white/30 sm:block"></span>
+    <span class="hidden text-sm tracking-[0.2em] text-slate-300 sm:block">流媒体分发控制台</span>
   </header>
 
-  <main class="login-panel">
-    <form class="login-form" onsubmit={submit}>
-      <h1>欢迎登录，</h1>
+  <main class="flex flex-1 items-center justify-center px-6 pb-16 md:justify-end md:pr-[10vw]">
+    <form
+      class="w-full max-w-[380px] rounded-2xl border border-white/15 bg-slate-950/70 p-8 text-slate-100 shadow-2xl backdrop-blur-xl ui-fade-in"
+      onsubmit={submit}
+    >
+      <p class="text-xs font-semibold tracking-[0.25em] text-sky-300/80">STREAM-HUB CONSOLE</p>
+      <h1 class="mt-2 text-2xl font-semibold">欢迎登录</h1>
+      <p class="mt-1 text-sm text-slate-400">请输入账号密码进入控制台</p>
 
-      {#if error}<div class="alert">{error}</div>{/if}
+      {#if error}
+        <div class="mt-5 rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+          {error}
+        </div>
+      {/if}
 
-      <label class="line">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <circle cx="12" cy="8" r="3.6" />
-          <path d="M5 20c.8-3.4 3.6-5 7-5s6.2 1.6 7 5" />
-        </svg>
-        <input type="text" placeholder="用户名" bind:value={username} autocomplete="username" />
+      <div class="mt-7 space-y-4">
+        <label class="flex items-center gap-3 border-b border-white/20 py-2.5 transition-colors focus-within:border-sky-400">
+          <Icon name="user" size={16} class="shrink-0 text-slate-400" />
+          <input
+            class="w-full bg-transparent text-sm text-slate-100 outline-none placeholder:text-slate-400"
+            type="text"
+            placeholder="用户名"
+            bind:value={username}
+            autocomplete="username"
+          />
+        </label>
+
+        <label class="flex items-center gap-3 border-b border-white/20 py-2.5 transition-colors focus-within:border-sky-400">
+          <Icon name="lock" size={16} class="shrink-0 text-slate-400" />
+          <input
+            class="w-full bg-transparent text-sm text-slate-100 outline-none placeholder:text-slate-400"
+            type={showPassword ? 'text' : 'password'}
+            placeholder="密码"
+            bind:value={password}
+            autocomplete="current-password"
+          />
+          <button
+            type="button"
+            class="shrink-0 text-slate-400 transition-colors hover:text-white"
+            onclick={() => (showPassword = !showPassword)}
+            aria-label={showPassword ? '隐藏密码' : '显示密码'}
+          >
+            <Icon name={showPassword ? 'eye-off' : 'eye'} size={16} />
+          </button>
+        </label>
+      </div>
+
+      <label class="mt-5 flex cursor-pointer select-none items-center gap-2 text-xs text-slate-300">
+        <input type="checkbox" class="h-4 w-4 accent-sky-500" bind:checked={remember} />
+        记住用户名
       </label>
 
-      <label class="line">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <rect x="5" y="10.5" width="14" height="9.5" rx="2" />
-          <path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" />
-        </svg>
-        <input
-          type={showPassword ? 'text' : 'password'}
-          placeholder="密码"
-          bind:value={password}
-          autocomplete="current-password"
-        />
-        <button
-          type="button"
-          class="eye"
-          onclick={() => (showPassword = !showPassword)}
-          aria-label={showPassword ? '隐藏密码' : '显示密码'}
-        >
-          {#if showPassword}
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M3 3l18 18" />
-              <path d="M10.6 5.8A9.8 9.8 0 0 1 12 5.5c6 0 9.5 6.5 9.5 6.5a17.5 17.5 0 0 1-3 3.9M6.1 6.1A17 17 0 0 0 2.5 12S6 18.5 12 18.5c1.4 0 2.8-.3 4-.9" />
-              <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
-            </svg>
-          {:else}
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" />
-              <circle cx="12" cy="12" r="3" />
-            </svg>
-          {/if}
-        </button>
-      </label>
-
-      <label class="remember">
-        <input type="checkbox" bind:checked={remember} />
-        <span>记住用户名</span>
-      </label>
-
-      <button class="submit" type="submit" disabled={busy}>
+      <Button type="submit" size="lg" class="mt-7 w-full rounded-full tracking-[0.3em]" disabled={busy}>
         {busy ? '登录中…' : '登 录'}
-      </button>
+      </Button>
 
-      <p class="hint">
-        初始密码由 <code>STREAM_HUB_ADMIN_PASSWORD</code> 注入，未设置时见后端启动日志；首次登录需先改密。
+      <p class="mt-5 text-xs leading-relaxed text-slate-400">
+        初始账号 <span class="font-mono text-slate-200">admin / admin</span>，首次登录会要求修改密码。
       </p>
     </form>
   </main>
 </div>
-
-<style>
-  /* 底图在 src/assets/login-bg.png，由 Vite 打包进 /assets/；缺失时由下方深色渐变兜底。 */
-  .login {
-    position: fixed;
-    inset: 0;
-    display: flex;
-    flex-direction: column;
-    background:
-      linear-gradient(90deg, rgba(5, 10, 26, 0.5) 0%, rgba(5, 10, 26, 0.18) 42%, rgba(5, 10, 26, 0.6) 100%),
-      url('../../assets/login-bg.png') center / cover no-repeat,
-      radial-gradient(1100px 620px at 20% 32%, #16305e, transparent),
-      linear-gradient(160deg, #0a1022, #0b1020);
-    color: var(--text);
-  }
-
-  .login-brand {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 20px 28px;
-  }
-  .login-brand .brand-mark {
-    width: 34px;
-    height: 34px;
-    border-radius: 10px;
-    font-size: 15px;
-  }
-  .brand-name {
-    font-size: 17px;
-    font-weight: 800;
-    letter-spacing: 0.5px;
-  }
-  .brand-divider {
-    width: 1px;
-    height: 16px;
-    background: rgba(255, 255, 255, 0.28);
-  }
-  .brand-sub {
-    font-size: 14px;
-    letter-spacing: 2px;
-    color: #cdd9f2;
-  }
-
-  .login-panel {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    padding: 0 11vw 7vh 0;
-  }
-  .login-form {
-    width: min(340px, 84vw);
-  }
-  h1 {
-    margin: 0 0 26px;
-    font-size: 26px;
-    font-weight: 600;
-    letter-spacing: 1px;
-  }
-
-  /* 下划线式输入行 */
-  .line {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 2px;
-    margin-bottom: 16px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.18);
-    transition: border-color 0.15s;
-  }
-  .line:focus-within {
-    border-color: #4d8dff;
-  }
-  .line > svg {
-    flex: none;
-    width: 16px;
-    height: 16px;
-    color: #9fb3d9;
-  }
-  .line input {
-    flex: 1;
-    min-width: 0;
-    padding: 0;
-    background: transparent;
-    border: none;
-    border-radius: 0;
-    box-shadow: none;
-    color: var(--text);
-    font-size: 14px;
-    outline: none;
-  }
-  .line input::placeholder {
-    color: #7e8db0;
-  }
-  .line input:focus {
-    border: none;
-    box-shadow: none;
-  }
-
-  .eye {
-    flex: none;
-    display: grid;
-    place-items: center;
-    padding: 2px;
-    background: none;
-    border: none;
-    color: #9fb3d9;
-    cursor: pointer;
-  }
-  .eye svg {
-    width: 16px;
-    height: 16px;
-  }
-
-  .remember {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin: 2px 0 26px;
-    font-size: 13px;
-    color: #b7c4e0;
-    cursor: pointer;
-    user-select: none;
-  }
-  .remember input {
-    width: 15px;
-    height: 15px;
-    padding: 0;
-    accent-color: #2f7bff;
-    cursor: pointer;
-  }
-
-  .submit {
-    width: 100%;
-    padding: 12px;
-    border: none;
-    border-radius: 22px;
-    background: linear-gradient(90deg, #2f7bff, #4d8dff);
-    color: #fff;
-    font-size: 14px;
-    font-weight: 600;
-    letter-spacing: 8px;
-    text-indent: 8px; /* 平衡 letter-spacing 造成的右侧空隙 */
-    cursor: pointer;
-    transition: filter 0.15s, transform 0.12s;
-  }
-  .submit:hover:not(:disabled) {
-    filter: brightness(1.12);
-    transform: translateY(-1px);
-  }
-  .submit:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-
-  .hint {
-    margin-top: 22px;
-    font-size: 12px;
-    line-height: 1.7;
-    color: #7e8db0;
-  }
-  .hint code {
-    color: #a9bcdf;
-  }
-
-  @media (max-width: 760px) {
-    .login-panel {
-      justify-content: center;
-      padding: 0 24px;
-    }
-    .brand-sub,
-    .brand-divider {
-      display: none;
-    }
-  }
-</style>

@@ -21,3 +21,22 @@ jobs:
         run: go vet ./...
       - name: test
         run: go test ./... -count=1
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - name: install
+        run: pnpm -C web install --frozen-lockfile
+      - name: svelte-check
+        run: pnpm -C web check
+      - name: build
+        run: pnpm -C web build

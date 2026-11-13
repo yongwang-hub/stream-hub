@@ -49,6 +49,10 @@
 {:else if mustChange}
   <ChangePassword onDone={handlePasswordChanged} onCancel={logout} />
 {:else}
-  {#if error}<div class="alert" style="margin: 12px 18px">{error}</div>{/if}
+  {#if error}
+    <div class="mx-5 mt-3 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning">
+      {error}
+    </div>
+  {/if}
   <AdminShell onLogout={logout} />
 {/if}

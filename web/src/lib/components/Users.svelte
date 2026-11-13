@@ -1,9 +1,23 @@
 <script lang="ts">
   // 用户管理：真接口 /api/v1/users（sys_users 表）。
-  // 列表/新增/编辑/删除/启停/分配角色都走后端；角色下拉来自 /api/v1/roles。
+  // 列表/新增/编辑/删除/启停/分配角色全部走后端，角色选项来自 /api/v1/roles。
   import { onMount } from 'svelte';
   import { ApiError, api } from '../api';
   import type { AdminRole, AdminUser, AdminUserInput } from '../api';
+  import Icon from '../ui/Icon.svelte';
+  import Button from '../ui/Button.svelte';
+  import Badge from '../ui/Badge.svelte';
+  import Modal from '../ui/Modal.svelte';
+  import { cn } from '../utils';
+  import {
+    inputClass,
+    labelClass,
+    tableClass,
+    tableWrapClass,
+    thClass,
+    tdClass,
+    rowHoverClass,
+  } from '../ui/classes';
 
   let users = $state<AdminUser[]>([]);
   let roleOptions = $state<AdminRole[]>([]);
@@ -110,7 +124,6 @@
   async function toggleEnabled(user: AdminUser): Promise<void> {
     error = '';
     try {
-      // 只传 enabled：后端其余字段留空即不更新，角色关联也不会被动到。
       await api.updateAdminUser(user.id, { username: user.username, enabled: !user.enabled });
       notice = user.enabled ? '已停用' : '已启用';
       await load();
@@ -132,129 +145,160 @@
   }
 </script>
 
-<h2 class="page-title">用户管理</h2>
-<p class="page-hint">
-  已对接真实账号接口 <code>/api/v1/users</code>（sys_users 表）。可新增用户、设置初始密码、
-  分配角色、启停账号；新建用户首登会被强制改密。内置 admin 账号不能删除自己。
-</p>
-
-{#if error}<div class="alert" style="margin-bottom: 12px">{error}</div>{/if}
-{#if notice}<div class="note" style="margin-bottom: 12px">{notice}</div>{/if}
-
-<div class="panel">
-  <div class="toolbar">
-    <input class="search" placeholder="请输入用户名 / 邮箱" bind:value={keyword} />
-    <button class="btn primary sm" onclick={openCreate}>+ 新增</button>
-    <span class="spacer"></span>
-    <button class="btn sm" onclick={() => void load()} disabled={loading}>
-      {loading ? '加载中…' : '刷新'}
-    </button>
-    <button class="btn ghost sm" onclick={() => (keyword = '')}>重置</button>
+<div class="space-y-5">
+  <div>
+    <h2 class="text-xl font-semibold tracking-tight">用户管理</h2>
+    <p class="mt-1 text-sm text-muted-foreground">
+      已对接真实账号接口 <code>/api/v1/users</code>：可新增用户、设置初始密码、分配角色、启停账号；内置 admin 不能删除自己。
+    </p>
   </div>
 
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>用户名</th>
-          <th>邮箱</th>
-          <th>用户角色</th>
-          <th>状态</th>
-          <th style="text-align: right">操作</th>
-        </tr>
-      </thead>
-      <tbody>
-        {#each filtered as user (user.id)}
+  {#if error}
+    <div class="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</div>
+  {/if}
+  {#if notice}
+    <div class="rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-sm text-success">{notice}</div>
+  {/if}
+
+  <div class="rounded-xl border border-border bg-card p-4 shadow-sm">
+    <div class="mb-4 flex flex-wrap items-center gap-2">
+      <div class="relative min-w-[200px] flex-1 md:max-w-xs">
+        <Icon name="search" size={15} class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+        <input class={cn(inputClass, 'pl-9')} placeholder="搜索用户名 / 邮箱" bind:value={keyword} />
+      </div>
+      <Button variant="outline" size="sm" icon="refresh" onclick={() => void load()} disabled={loading}>
+        刷新
+      </Button>
+      <Button variant="ghost" size="sm" onclick={() => (keyword = '')}>重置</Button>
+      <span class="flex-1"></span>
+      <Button size="sm" icon="plus" onclick={openCreate}>新增用户</Button>
+    </div>
+
+    <div class={tableWrapClass}>
+      <table class={tableClass}>
+        <thead class="bg-muted/40">
           <tr>
-            <td class="mono">{user.id}</td>
-            <td><span class="avatar">{user.username.slice(0, 1).toUpperCase()}</span> {user.username}</td>
-            <td>{user.email || '—'}</td>
-            <td>{user.roles.length ? user.roles.join('、') : '—'}</td>
-            <td>
-              <button
-                class="switch {user.enabled ? '' : 'off'}"
-                onclick={() => void toggleEnabled(user)}
-                title="点击切换启停状态"
-              ><i></i>{user.enabled ? '启用' : '停用'}</button>
-            </td>
-            <td class="actions">
-              <button class="icon-btn" onclick={() => openEdit(user)}>编辑</button>
-              <button class="icon-btn del" onclick={() => void remove(user)}>删除</button>
-            </td>
+            <th class={thClass}>ID</th>
+            <th class={thClass}>用户名</th>
+            <th class={thClass}>邮箱</th>
+            <th class={thClass}>用户角色</th>
+            <th class={thClass}>状态</th>
+            <th class={cn(thClass, 'text-right')}>操作</th>
           </tr>
-        {:else}
-          <tr><td colspan="6" class="empty">{loading ? '加载中…' : '暂无数据'}</td></tr>
-        {/each}
-      </tbody>
-    </table>
-  </div>
+        </thead>
+        <tbody>
+          {#each filtered as user (user.id)}
+            <tr class={rowHoverClass}>
+              <td class={cn(tdClass, 'font-mono text-xs text-muted-foreground')}>{user.id}</td>
+              <td class={tdClass}>
+                <div class="flex items-center gap-2">
+                  <span class="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                    {user.username.slice(0, 1).toUpperCase()}
+                  </span>
+                  <span class="font-medium">{user.username}</span>
+                </div>
+              </td>
+              <td class={cn(tdClass, 'text-muted-foreground')}>{user.email || '—'}</td>
+              <td class={tdClass}>
+                <div class="flex flex-wrap gap-1">
+                  {#each user.roles as roleName}
+                    <Badge variant="secondary">{roleName}</Badge>
+                  {:else}
+                    <span class="text-muted-foreground">—</span>
+                  {/each}
+                </div>
+              </td>
+              <td class={tdClass}>
+                <button onclick={() => void toggleEnabled(user)} title="点击切换启停状态">
+                  <Badge variant={user.enabled ? 'success' : 'secondary'}>
+                    {user.enabled ? '● 启用' : '○ 停用'}
+                  </Badge>
+                </button>
+              </td>
+              <td class={cn(tdClass, 'text-right whitespace-nowrap')}>
+                <Button variant="ghost" size="sm" icon="edit" onclick={() => openEdit(user)}>编辑</Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon="trash"
+                  class="text-destructive hover:text-destructive"
+                  onclick={() => void remove(user)}
+                >删除</Button>
+              </td>
+            </tr>
+          {:else}
+            <tr>
+              <td colspan="6" class="px-4 py-12 text-center text-sm text-muted-foreground">
+                {loading ? '加载中…' : '暂无数据'}
+              </td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
 
-  <div class="pager">
-    <span>共 {filtered.length} 条</span>
-    <span>10 条/页</span>
-    <span>第 1 页</span>
+    <div class="mt-4 flex justify-end gap-3 text-xs text-muted-foreground">
+      <span>共 {filtered.length} 条</span><span>10 条/页</span><span>第 1 页</span>
+    </div>
   </div>
 </div>
 
-{#if showModal}
-  <div class="modal-mask">
-    <div class="modal">
-      <h3>{editing ? '编辑用户' : '新增用户'}</h3>
-      <div class="form-grid">
-        <div class="field">
-          <label for="u-name">用户名</label>
-          <input id="u-name" bind:value={form.username} disabled={editing?.username === 'admin'} placeholder="请输入用户名" />
-        </div>
-        <div class="field">
-          <label for="u-pwd">{editing ? '密码（留空不改）' : '初始密码'}</label>
-          <input id="u-pwd" type="password" bind:value={form.password} placeholder={editing ? '留空表示不修改' : '必填'} />
-        </div>
-        <div class="field">
-          <label for="u-email">邮箱</label>
-          <input id="u-email" bind:value={form.email} placeholder="请输入邮箱" />
-        </div>
-        <div class="field">
-          <label for="u-enabled">账号状态</label>
-          <label class="inline" style="padding-top: 9px">
-            <input id="u-enabled" type="checkbox" bind:checked={form.enabled} style="width: auto" />
-            启用
+<Modal
+  open={showModal}
+  title={editing ? '编辑用户' : '新增用户'}
+  description={editing ? '密码留空表示不修改' : '新建用户首次登录会被强制改密'}
+  width="max-w-xl"
+  onClose={() => (showModal = false)}
+>
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div>
+      <label class={labelClass} for="u-name">用户名</label>
+      <input id="u-name" class={inputClass} bind:value={form.username} disabled={editing?.username === 'admin'} placeholder="请输入用户名" />
+    </div>
+    <div>
+      <label class={labelClass} for="u-pwd">{editing ? '密码（留空不改）' : '初始密码'}</label>
+      <input id="u-pwd" class={inputClass} type="password" bind:value={form.password} placeholder={editing ? '留空表示不修改' : '必填'} />
+    </div>
+    <div>
+      <label class={labelClass} for="u-email">邮箱</label>
+      <input id="u-email" class={inputClass} bind:value={form.email} placeholder="选填" />
+    </div>
+    <div>
+      <span class={labelClass}>账号状态</span>
+      <label class="mt-2 flex cursor-pointer items-center gap-2 text-sm">
+        <input type="checkbox" class="h-4 w-4 accent-primary" bind:checked={form.enabled} />
+        启用
+      </label>
+    </div>
+    <div class="sm:col-span-2">
+      <span class={labelClass}>分配角色</span>
+      <div class="flex flex-wrap gap-2">
+        {#each roleOptions as role (role.id)}
+          <label
+            class={cn(
+              'flex cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs transition-colors',
+              form.role_ids.includes(role.id)
+                ? 'border-primary bg-primary/10 text-primary'
+                : 'border-border text-muted-foreground hover:bg-muted',
+            )}
+          >
+            <input
+              type="checkbox"
+              class="sr-only"
+              checked={form.role_ids.includes(role.id)}
+              onchange={() => toggleRole(role.id)}
+            />
+            {role.name}
           </label>
-        </div>
-        <div class="field" style="grid-column: 1 / -1">
-          <span style="font-size: 12px; color: var(--muted)">分配角色</span>
-          <div class="role-checks">
-            {#each roleOptions as role (role.id)}
-              <label>
-                <input
-                  type="checkbox"
-                  checked={form.role_ids.includes(role.id)}
-                  onchange={() => toggleRole(role.id)}
-                />
-                {role.name}
-              </label>
-            {:else}
-              <span style="font-size: 12px; color: var(--muted)">暂无可选角色，请先到角色管理创建</span>
-            {/each}
-          </div>
-        </div>
-      </div>
-      <div class="modal-actions">
-        <button class="btn ghost" onclick={() => (showModal = false)}>取消</button>
-        <button class="btn primary" onclick={() => void save()}>保存</button>
+        {:else}
+          <span class="text-xs text-muted-foreground">暂无可选角色，请先到角色管理创建</span>
+        {/each}
       </div>
     </div>
   </div>
-{/if}
 
-<style>
-  .role-checks { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
-  .role-checks label {
-    display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px;
-    border: 1px solid var(--border); border-radius: 8px; font-size: 12px; cursor: pointer;
-  }
-  .role-checks input { width: auto; }
-  .switch { background: transparent; border: none; padding: 0; cursor: pointer; }
-  .switch.off i { background: var(--muted); }
-  .switch.off i::after { right: auto; left: 2px; }
-</style>
+  {#snippet footer()}
+    <Button variant="outline" onclick={() => (showModal = false)}>取消</Button>
+    <Button onclick={() => void save()}>保存</Button>
+  {/snippet}
+</Modal>

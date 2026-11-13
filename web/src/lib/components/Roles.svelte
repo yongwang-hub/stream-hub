@@ -1,9 +1,22 @@
 <script lang="ts">
-  // 角色管理：真接口 /api/v1/roles（sys_roles 表）。
-  // 内置 admin 角色由 seed 创建，后端禁止改名/删除，前端也做了禁用提示。
+  // 角色管理：真接口 /api/v1/roles（sys_roles 表）。内置 admin 角色受后端保护。
   import { onMount } from 'svelte';
   import { ApiError, api } from '../api';
   import type { AdminRole, AdminRoleInput } from '../api';
+  import Icon from '../ui/Icon.svelte';
+  import Button from '../ui/Button.svelte';
+  import Badge from '../ui/Badge.svelte';
+  import Modal from '../ui/Modal.svelte';
+  import { cn } from '../utils';
+  import {
+    inputClass,
+    labelClass,
+    tableClass,
+    tableWrapClass,
+    thClass,
+    tdClass,
+    rowHoverClass,
+  } from '../ui/classes';
 
   let roles = $state<AdminRole[]>([]);
   let loading = $state(false);
@@ -67,7 +80,6 @@
       name: form.name.trim(),
       description: form.description,
     };
-    // 新建角色默认无权限；编辑时不传 permissions，后端保持原有权限不变。
     if (!editing) payload.permissions = [];
     error = '';
     try {
@@ -94,101 +106,116 @@
   }
 </script>
 
-<h2 class="page-title">角色管理</h2>
-<p class="page-hint">
-  已对接真实 RBAC 接口 <code>/api/v1/roles</code>（sys_roles 表）。内置 admin 角色受保护，不能改名或删除。
-  权限码在列表里展示；后端已支持 <code>permissions</code> 字段分配权限，勾选 UI 后续补。
-</p>
-
-{#if error}<div class="alert" style="margin-bottom: 12px">{error}</div>{/if}
-{#if notice}<div class="note" style="margin-bottom: 12px">{notice}</div>{/if}
-
-<div class="panel">
-  <div class="toolbar">
-    <input class="search" placeholder="请输入角色ID / 角色名称" bind:value={keyword} />
-    <button class="btn primary sm" onclick={openCreate}>+ 新增</button>
-    <span class="spacer"></span>
-    <button class="btn sm" onclick={() => void load()} disabled={loading}>
-      {loading ? '加载中…' : '刷新'}
-    </button>
-    <button class="btn ghost sm" onclick={() => (keyword = '')}>重置</button>
+<div class="space-y-5">
+  <div>
+    <h2 class="text-xl font-semibold tracking-tight">角色管理</h2>
+    <p class="mt-1 text-sm text-muted-foreground">
+      已对接真实 RBAC 接口 <code>/api/v1/roles</code>。内置 admin 角色受保护；后端已支持 permissions 字段，勾选 UI 后续补。
+    </p>
   </div>
 
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>角色ID</th>
-          <th>角色名称</th>
-          <th>描述</th>
-          <th>权限</th>
-          <th style="text-align: right">操作</th>
-        </tr>
-      </thead>
-      <tbody>
-        {#each filtered as role (role.id)}
+  {#if error}
+    <div class="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</div>
+  {/if}
+  {#if notice}
+    <div class="rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-sm text-success">{notice}</div>
+  {/if}
+
+  <div class="rounded-xl border border-border bg-card p-4 shadow-sm">
+    <div class="mb-4 flex flex-wrap items-center gap-2">
+      <div class="relative min-w-[200px] flex-1 md:max-w-xs">
+        <Icon name="search" size={15} class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+        <input class={cn(inputClass, 'pl-9')} placeholder="搜索角色ID / 名称" bind:value={keyword} />
+      </div>
+      <Button variant="outline" size="sm" icon="refresh" onclick={() => void load()} disabled={loading}>
+        刷新
+      </Button>
+      <Button variant="ghost" size="sm" onclick={() => (keyword = '')}>重置</Button>
+      <span class="flex-1"></span>
+      <Button size="sm" icon="plus" onclick={openCreate}>新增角色</Button>
+    </div>
+
+    <div class={tableWrapClass}>
+      <table class={tableClass}>
+        <thead class="bg-muted/40">
           <tr>
-            <td class="mono">{role.id}</td>
-            <td>
-              {role.name}
-              {#if role.name === 'admin'}<span class="tag" style="margin-left: 6px">内置</span>{/if}
-            </td>
-            <td>{role.description || '—'}</td>
-            <td>
-              {#each role.permissions.slice(0, 2) as code (code)}
-                <span class="tag" style="margin-right: 4px">{code}</span>
-              {/each}
-              <span style="font-size: 11px; color: var(--muted)">
-                {role.permissions.length ? `共 ${role.permissions.length} 项` : '无权限'}
-              </span>
-            </td>
-            <td class="actions">
-              <button class="icon-btn" onclick={() => openEdit(role)}>编辑</button>
-              <button
-                class="icon-btn del"
-                disabled={role.name === 'admin'}
-                title={role.name === 'admin' ? '内置角色不能删除' : '删除角色'}
-                onclick={() => void remove(role)}
-              >删除</button>
-            </td>
+            <th class={thClass}>角色ID</th>
+            <th class={thClass}>角色名称</th>
+            <th class={thClass}>描述</th>
+            <th class={thClass}>权限</th>
+            <th class={cn(thClass, 'text-right')}>操作</th>
           </tr>
-        {:else}
-          <tr><td colspan="5" class="empty">{loading ? '加载中…' : '暂无数据'}</td></tr>
-        {/each}
-      </tbody>
-    </table>
-  </div>
+        </thead>
+        <tbody>
+          {#each filtered as role (role.id)}
+            <tr class={rowHoverClass}>
+              <td class={cn(tdClass, 'font-mono text-xs text-muted-foreground')}>{role.id}</td>
+              <td class={tdClass}>
+                <div class="flex items-center gap-2">
+                  <span class="font-medium">{role.name}</span>
+                  {#if role.name === 'admin'}<Badge variant="warning">内置</Badge>{/if}
+                </div>
+              </td>
+              <td class={cn(tdClass, 'text-muted-foreground')}>{role.description || '—'}</td>
+              <td class={tdClass}>
+                <div class="flex flex-wrap items-center gap-1">
+                  {#each role.permissions.slice(0, 2) as code}
+                    <Badge variant="outline">{code}</Badge>
+                  {/each}
+                  <span class="text-xs text-muted-foreground">
+                    {role.permissions.length ? `共 ${role.permissions.length} 项` : '无权限'}
+                  </span>
+                </div>
+              </td>
+              <td class={cn(tdClass, 'text-right whitespace-nowrap')}>
+                <Button variant="ghost" size="sm" icon="edit" onclick={() => openEdit(role)}>编辑</Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon="trash"
+                  class="text-destructive hover:text-destructive"
+                  disabled={role.name === 'admin'}
+                  title={role.name === 'admin' ? '内置角色不能删除' : '删除角色'}
+                  onclick={() => void remove(role)}
+                >删除</Button>
+              </td>
+            </tr>
+          {:else}
+            <tr>
+              <td colspan="5" class="px-4 py-12 text-center text-sm text-muted-foreground">
+                {loading ? '加载中…' : '暂无数据'}
+              </td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
 
-  <div class="pager">
-    <span>共 {filtered.length} 条</span>
-    <span>10 条/页</span>
-    <span>第 1 页</span>
+    <div class="mt-4 flex justify-end gap-3 text-xs text-muted-foreground">
+      <span>共 {filtered.length} 条</span><span>10 条/页</span><span>第 1 页</span>
+    </div>
   </div>
 </div>
 
-{#if showModal}
-  <div class="modal-mask">
-    <div class="modal">
-      <h3>{editing ? '编辑角色' : '新增角色'}</h3>
-      <div class="form-grid">
-        <div class="field">
-          <label for="r-name">角色名称</label>
-          <input
-            id="r-name"
-            bind:value={form.name}
-            disabled={editing?.name === 'admin'}
-            placeholder="请输入角色名称"
-          />
-        </div>
-        <div class="field">
-          <label for="r-desc">描述</label>
-          <input id="r-desc" bind:value={form.description} placeholder="选填" />
-        </div>
-      </div>
-      <div class="modal-actions">
-        <button class="btn ghost" onclick={() => (showModal = false)}>取消</button>
-        <button class="btn primary" onclick={() => void save()}>保存</button>
-      </div>
+<Modal
+  open={showModal}
+  title={editing ? '编辑角色' : '新增角色'}
+  description="编辑时不修改该角色已分配的权限"
+  onClose={() => (showModal = false)}
+>
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div>
+      <label class={labelClass} for="r-name">角色名称</label>
+      <input id="r-name" class={inputClass} bind:value={form.name} disabled={editing?.name === 'admin'} placeholder="请输入角色名称" />
+    </div>
+    <div>
+      <label class={labelClass} for="r-desc">描述</label>
+      <input id="r-desc" class={inputClass} bind:value={form.description} placeholder="选填" />
     </div>
   </div>
-{/if}
+
+  {#snippet footer()}
+    <Button variant="outline" onclick={() => (showModal = false)}>取消</Button>
+    <Button onclick={() => void save()}>保存</Button>
+  {/snippet}
+</Modal>

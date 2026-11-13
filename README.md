@@ -245,17 +245,6 @@ stream-hub/
 
 ---
 
-## 关于 git
-
-本目录没有 `.git`，纯源码。稳定后可初始化：
-
-```powershell
-cd d:\projects\go\stream-hub
-git init
-git add .
-git commit -m "stage2: 后端地基 + Svelte 5 前端骨架"
-```
-
 ---
 
 > **一句话**：后端阶段 1 与前端 Svelte 5 骨架都已完成并端到端联调通过；下一步在前端补播放器与指标面板，后端接真实流媒体源、压测与 SSE 水平扩容。

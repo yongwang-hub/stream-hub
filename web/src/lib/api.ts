@@ -183,7 +183,10 @@ export const api = {
   createAdminUser: (input: AdminUserInput) =>
     request<AdminUser>('/api/v1/users', { method: 'POST', body: json(input) }),
   updateAdminUser: (id: number, input: AdminUserInput) =>
-    request<AdminUser>(`/api/v1/users/${id}`, { method: 'PUT', body: json(input) }),
+    request<AdminUser>(`/api/v1/users/${id}`, {
+      method: 'PUT',
+      body: json(input),
+    }),
   deleteAdminUser: (id: number) =>
     request<{ deleted: number }>(`/api/v1/users/${id}`, { method: 'DELETE' }),
 
@@ -192,7 +195,10 @@ export const api = {
   createRole: (input: AdminRoleInput) =>
     request<AdminRole>('/api/v1/roles', { method: 'POST', body: json(input) }),
   updateRole: (id: number, input: AdminRoleInput) =>
-    request<AdminRole>(`/api/v1/roles/${id}`, { method: 'PUT', body: json(input) }),
+    request<AdminRole>(`/api/v1/roles/${id}`, {
+      method: 'PUT',
+      body: json(input),
+    }),
   deleteRole: (id: number) =>
     request<{ deleted: number }>(`/api/v1/roles/${id}`, { method: 'DELETE' }),
 };
