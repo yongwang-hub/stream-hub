@@ -1,0 +1,25 @@
+# 编译产物
+*.exe
+/package/
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+/bin/
+
+# SQLite 运行产物（数据库文件本身不入库）
+*.db
+*.db-wal
+*.db-shm
+stream-hub.db*
+
+# 编辑器/IDE
+.idea/
+.vscode/
+
+# 构建/运行产物（均可由 pnpm build / pnpm build:all 重新生成，不入库）
+/dist/
+/web/dist/
+*.log
+.smoke*

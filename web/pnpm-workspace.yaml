@@ -1,0 +1,3 @@
+# pnpm 10 默认不执行依赖的构建脚本；显式放行 esbuild（Vite 依赖它）即可消除警告。
+onlyBuiltDependencies:
+  - esbuild

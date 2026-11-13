@@ -1,0 +1,65 @@
+# stream-hub 服务配置。程序启动时只读取本文件，不会写入或自动生成。
+# 三层优先级：代码默认值 < 本文件 < 环境变量(STREAM_HUB_*)
+
+server:
+  # 监听地址；也可用环境变量 STREAM_HUB_ADDR 覆盖
+  addr: ":8080"
+  # 优雅关停最多等在途请求的时间，如 "10s"、"1m"
+  shutdown_timeout: 10s
+  # ---- 面向公网的底线防护（各项均可用同名 STREAM_HUB_* 环境变量覆盖）----
+  # 读请求头上限：专防 Slowloris 慢速攻击
+  read_header_timeout: 5s
+  # 读完整个请求(头+体)上限
+  read_timeout: 10s
+  # 写响应(含 handler 耗时)上限；注意 /slow 睡 5s 仍在 10s 内
+  write_timeout: 10s
+  # keep-alive 连接空闲上限
+  idle_timeout: 90s
+  # 单个请求 body 字节上限，超出回 413（STREAM_HUB_MAX_BODY_BYTES 覆盖，单位字节）
+  max_body_bytes: 1048576
+  # 并发准入上限：同时在处理的请求数，超出立即 429（优雅降级、防过载雪崩）。
+  # 0=不限（STREAM_HUB_MAX_CONCURRENT 覆盖）；面向公网建议给一个与连接池/核数匹配的有力值。
+  max_concurrent_requests: 256
+  # 演示路由 /panic、/slow 是否注册（仅本地开发；生产必须 false）
+  debug_routes: true
+
+database:
+  # 存储后端：memory(内存、重启即丢) | sqlite | mysql | postgres
+  # 注意：driver 只在启动时读取一次，运行期不会热切换；换库需改此处 + 重启进程。
+  driver: sqlite
+  # sqlite 数据库文件路径（相对于启动目录）；也可用 STREAM_HUB_DB_DSN 覆盖
+  dsn: "file:stream-hub.db?_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)"
+  # 切到 MySQL：driver: mysql，DSN 形如（user:pass@tcp(127.0.0.1:3306)/dbname?parseTime=true&charset=utf8mb4）
+  #   dsn: "root:root@tcp(127.0.0.1:3306)/stream_hub?parseTime=true&charset=utf8mb4"
+  # 切到 PostgreSQL：driver: postgres，DSN 形如（postgres://user:pass@127.0.0.1:5432/stream_hub?sslmode=disable）
+  #   dsn: "postgres://postgres:postgres@127.0.0.1:5432/stream_hub?sslmode=disable"
+  # ---- 连接池调优（仅 mysql/postgres 生效；sqlite 走单写者会忽略；留空则用代码默认）----
+  max_open_conns: 25    # 最大并发连接数（高并发吞吐的第一旋钮）
+  max_idle_conns: 25    # 最大空闲连接数（建议 ==max_open_conns，避免频繁建连/断连）
+  conn_max_lifetime: 30m # 单条连接最长存活，定期回收应对服务端 wait_timeout
+
+# 浏览器跨域白名单（Vite 开发服务器默认 5173）；"*" 与 allow_credentials 不能同时开
+# 可用 STREAM_HUB_CORS_ORIGINS（逗号分隔）/ STREAM_HUB_CORS_CREDENTIALS 覆盖
+cors:
+  allow_origins: ["http://localhost:5173", "http://127.0.0.1:5173"]
+  allow_credentials: false
+
+log:
+  # 日志级别：debug | info | warn | error（也可用 STREAM_HUB_LOG_LEVEL 覆盖）
+  level: info
+  # 输出格式：text(人读) | json(日志采集系统读)，可用 STREAM_HUB_LOG_FORMAT 覆盖
+  format: text
+
+auth:
+  # JWT 签名密钥：留空 = 认证关闭，接口全部公开。
+  # 下面仅供本地开发演示；生产环境用环境变量 STREAM_HUB_AUTH_SECRET 注入真密钥，
+  # 绝不要把真密钥提交进仓库！
+  secret: "dev-secret-change-me"
+  # token 有效期，如 "2h"、"30m"、"10s"（演示过期用）；STREAM_HUB_AUTH_TOKEN_TTL 可覆盖
+  token_ttl: 2h
+
+observability:
+  # 诊断端点的独立内网监听（与业务端口分开）：提供 /debug/pprof/* 和 /metrics。
+  # 留空 = 完全关闭（默认，避免对外暴露运行时信息）。本地做性能分析时打开。
+  # 可用 STREAM_HUB_INTERNAL_ADDR 覆盖；建议只绑 127.0.0.1。
+  internal_addr: "127.0.0.1:9090"

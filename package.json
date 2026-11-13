@@ -1,0 +1,14 @@
+{
+  "name": "stream-hub",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "start \"sh-web\" cmd /c \"pnpm -C web dev\" && start \"sh-server\" cmd /c \"go run ./cmd/server\"",
+    "dev:web": "pnpm -C web dev",
+    "dev:server": "go run ./cmd/server",
+    "build:win": "node scripts/build.mjs --win",
+    "build:amd64": "node scripts/build.mjs --amd64",
+    "build:arm64": "node scripts/build.mjs --arm64",
+    "build:all": "node scripts/build.mjs --win && node scripts/build.mjs --amd64 --skip-build && node scripts/build.mjs --arm64 --skip-build"
+  }
+}
