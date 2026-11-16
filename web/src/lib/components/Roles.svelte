@@ -1,12 +1,14 @@
 <script lang="ts">
   // 角色管理：真接口 /api/v1/roles（sys_roles 表）。内置 admin 角色受后端保护。
+  // 报错/成功提示统一走全局 Toast，页面内不再放内嵌提示条。
   import { onMount } from 'svelte';
-  import { ApiError, api } from '../api';
+  import { api } from '../api';
   import type { AdminRole, AdminRoleInput } from '../api';
   import Icon from '../ui/Icon.svelte';
   import Button from '../ui/Button.svelte';
   import Badge from '../ui/Badge.svelte';
   import Modal from '../ui/Modal.svelte';
+  import { toast } from '../ui/toast.svelte';
   import { cn } from '../utils';
   import {
     inputClass,
@@ -20,8 +22,6 @@
 
   let roles = $state<AdminRole[]>([]);
   let loading = $state(false);
-  let error = $state('');
-  let notice = $state('');
   let keyword = $state('');
   let showModal = $state(false);
   let editing = $state<AdminRole | null>(null);
@@ -37,15 +37,14 @@
   );
 
   const describe = (err: unknown): string =>
-    err instanceof ApiError ? err.message : err instanceof Error ? err.message : String(err);
+    err instanceof Error ? err.message : String(err);
 
   async function load(): Promise<void> {
     loading = true;
-    error = '';
     try {
       roles = await api.listRoles();
     } catch (err) {
-      error = describe(err);
+      toast.error(describe(err));
     } finally {
       loading = false;
     }
@@ -58,22 +57,18 @@
   function openCreate(): void {
     editing = null;
     form = { name: '', description: '' };
-    error = '';
-    notice = '';
     showModal = true;
   }
 
   function openEdit(role: AdminRole): void {
     editing = role;
     form = { name: role.name, description: role.description };
-    error = '';
-    notice = '';
     showModal = true;
   }
 
   async function save(): Promise<void> {
     if (!form.name.trim()) {
-      error = '请填写角色名称';
+      toast.error('请填写角色名称');
       return;
     }
     const payload: AdminRoleInput = {
@@ -81,27 +76,25 @@
       description: form.description,
     };
     if (!editing) payload.permissions = [];
-    error = '';
     try {
       if (editing) await api.updateRole(editing.id, payload);
       else await api.createRole(payload);
       showModal = false;
-      notice = '已保存到数据库';
+      toast.success('已保存到数据库');
       await load();
     } catch (err) {
-      error = describe(err);
+      toast.error(describe(err));
     }
   }
 
   async function remove(role: AdminRole): Promise<void> {
     if (!confirm(`确定删除角色「${role.name}」吗？`)) return;
-    error = '';
     try {
       await api.deleteRole(role.id);
-      notice = '已删除';
+      toast.success('已删除');
       await load();
     } catch (err) {
-      error = describe(err);
+      toast.error(describe(err));
     }
   }
 </script>
@@ -113,13 +106,6 @@
       已对接真实 RBAC 接口 <code>/api/v1/roles</code>。内置 admin 角色受保护；后端已支持 permissions 字段，勾选 UI 后续补。
     </p>
   </div>
-
-  {#if error}
-    <div class="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</div>
-  {/if}
-  {#if notice}
-    <div class="rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-sm text-success">{notice}</div>
-  {/if}
 
   <div class="rounded-xl border border-border bg-card p-4 shadow-sm">
     <div class="mb-4 flex flex-wrap items-center gap-2">

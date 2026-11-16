@@ -1,13 +1,15 @@
 <script lang="ts">
   // 用户管理：真接口 /api/v1/users（sys_users 表）。
   // 列表/新增/编辑/删除/启停/分配角色全部走后端，角色选项来自 /api/v1/roles。
+  // 报错/成功提示统一走全局 Toast，页面内不再放内嵌提示条。
   import { onMount } from 'svelte';
-  import { ApiError, api } from '../api';
+  import { api } from '../api';
   import type { AdminRole, AdminUser, AdminUserInput } from '../api';
   import Icon from '../ui/Icon.svelte';
   import Button from '../ui/Button.svelte';
   import Badge from '../ui/Badge.svelte';
   import Modal from '../ui/Modal.svelte';
+  import { toast } from '../ui/toast.svelte';
   import { cn } from '../utils';
   import {
     inputClass,
@@ -22,8 +24,6 @@
   let users = $state<AdminUser[]>([]);
   let roleOptions = $state<AdminRole[]>([]);
   let loading = $state(false);
-  let error = $state('');
-  let notice = $state('');
   let keyword = $state('');
   let showModal = $state(false);
   let editing = $state<AdminUser | null>(null);
@@ -45,17 +45,16 @@
   );
 
   const describe = (err: unknown): string =>
-    err instanceof ApiError ? err.message : err instanceof Error ? err.message : String(err);
+    err instanceof Error ? err.message : String(err);
 
   async function load(): Promise<void> {
     loading = true;
-    error = '';
     try {
       const [u, r] = await Promise.all([api.listAdminUsers(), api.listRoles()]);
       users = u;
       roleOptions = r;
     } catch (err) {
-      error = describe(err);
+      toast.error(describe(err));
     } finally {
       loading = false;
     }
@@ -68,8 +67,6 @@
   function openCreate(): void {
     editing = null;
     form = { username: '', password: '', email: '', enabled: true, role_ids: [] };
-    error = '';
-    notice = '';
     showModal = true;
   }
 
@@ -82,8 +79,6 @@
       enabled: user.enabled,
       role_ids: [...user.role_ids],
     };
-    error = '';
-    notice = '';
     showModal = true;
   }
 
@@ -95,11 +90,11 @@
 
   async function save(): Promise<void> {
     if (!form.username.trim()) {
-      error = '请填写用户名';
+      toast.error('请填写用户名');
       return;
     }
     if (!editing && !form.password) {
-      error = '新增用户必须设置初始密码';
+      toast.error('新增用户必须设置初始密码');
       return;
     }
     const payload: AdminUserInput = {
@@ -109,38 +104,35 @@
       role_ids: form.role_ids,
     };
     if (form.password) payload.password = form.password;
-    error = '';
     try {
       if (editing) await api.updateAdminUser(editing.id, payload);
       else await api.createAdminUser(payload);
       showModal = false;
-      notice = '已保存到数据库';
+      toast.success('已保存到数据库');
       await load();
     } catch (err) {
-      error = describe(err);
+      toast.error(describe(err));
     }
   }
 
   async function toggleEnabled(user: AdminUser): Promise<void> {
-    error = '';
     try {
       await api.updateAdminUser(user.id, { username: user.username, enabled: !user.enabled });
-      notice = user.enabled ? '已停用' : '已启用';
+      toast.success(user.enabled ? '已停用' : '已启用');
       await load();
     } catch (err) {
-      error = describe(err);
+      toast.error(describe(err));
     }
   }
 
   async function remove(user: AdminUser): Promise<void> {
     if (!confirm(`确定删除用户「${user.username}」吗？`)) return;
-    error = '';
     try {
       await api.deleteAdminUser(user.id);
-      notice = '已删除';
+      toast.success('已删除');
       await load();
     } catch (err) {
-      error = describe(err);
+      toast.error(describe(err));
     }
   }
 </script>
@@ -152,13 +144,6 @@
       已对接真实账号接口 <code>/api/v1/users</code>：可新增用户、设置初始密码、分配角色、启停账号；内置 admin 不能删除自己。
     </p>
   </div>
-
-  {#if error}
-    <div class="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</div>
-  {/if}
-  {#if notice}
-    <div class="rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-sm text-success">{notice}</div>
-  {/if}
 
   <div class="rounded-xl border border-border bg-card p-4 shadow-sm">
     <div class="mb-4 flex flex-wrap items-center gap-2">

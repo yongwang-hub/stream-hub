@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "start \"sh-web\" cmd /c \"pnpm -C web dev\" && start \"sh-server\" cmd /c \"go run ./cmd/server\"",
+    "dev": "node scripts/dev.mjs",
+    "dev:build": "node scripts/dev.mjs --build-only",
     "dev:web": "pnpm -C web dev",
     "dev:server": "go run ./cmd/server",
     "build:win": "node scripts/build.mjs --win",

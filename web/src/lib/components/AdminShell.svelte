@@ -1,6 +1,8 @@
 <script lang="ts">
-  // 主界面外壳：深色顶栏贯通全宽 + 深色侧栏在顶栏下方，两者连成「Γ」形一体骨架；
-  // 右侧内容区是一张浅色面板，左上角做内凹圆角，圆弧处露出深色骨架。
+  // 后台布局严格照公司 Vue 框架 packages/shared-components/src/xc-layout/：
+  //   xc-header-bar: 60px / padding 0 12px / 与侧栏同色 / logo 55px / 系统名 18px·500·字距1px·text-shadow
+  //   xc-side-bar:   220px + 12px×2 = 244px / 菜单项 46px / 文字 14px·500 / 图标 20px / 选中=主色实心
+  //   xc-content:    padding 12px / 左上圆角 10px / 上+左边框 / 无阴影
   // 菜单只有系统监控、系统管理两项，切换靠本地 view 状态，不引路由库。
   import Monitor from './Monitor.svelte';
   import Roles from './Roles.svelte';
@@ -23,23 +25,17 @@
   let collapsed = $state(false);
   let theme = $state<Theme>(currentTheme());
 
-  const crumbs: Record<View, string> = {
-    monitor: '系统监控',
-    roles: '系统管理 / 角色管理',
-    users: '系统管理 / 用户管理',
-    settings: '系统管理 / 系统配置',
-  };
-
-  const itemClass = (active: boolean): string =>
+  const itemClass = (active: boolean, isCollapsed = false): string =>
     cn(
-      'flex w-full items-center gap-3 rounded-lg px-3 py-3 text-sm transition-colors',
-      active
-        ? 'bg-sidebar-active text-white shadow-sm'
-        : 'text-sidebar-muted hover:bg-white/5 hover:text-sidebar-foreground',
+      'group flex h-[46px] w-full items-center gap-3 rounded-lg text-[14px] font-medium transition-colors',
+      isCollapsed ? 'justify-center px-0' : 'px-3',
+      active ? 'bg-primary text-white' : 'text-sidebar-foreground hover:bg-white/10',
     );
 
+  // 顶栏动作按钮：38×38 / 6px 圆角 / 19px 图标（xc-header-bar L107-126）
   const topBtn =
-    'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sidebar-muted transition-colors hover:bg-white/10 hover:text-sidebar-foreground';
+    'inline-flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[6px] text-sidebar-foreground transition-colors hover:bg-white/10';
+  const iconHover = 'transition-transform group-hover:scale-[1.16]';
 
   function go(next: View): void {
     view = next;
@@ -49,92 +45,78 @@
   function switchTheme(): void {
     theme = toggleTheme();
   }
+
+  function toggleFullscreen(): void {
+    if (document.fullscreenElement) void document.exitFullscreen();
+    else void document.documentElement.requestFullscreen();
+  }
 </script>
 
 <div class="flex h-screen flex-col overflow-hidden bg-sidebar">
-  <!-- 顶栏：全宽深色，左侧品牌区宽度与侧栏对齐，视觉上与侧栏连成一体 -->
-  <header class="flex h-16 shrink-0 items-center gap-3 bg-sidebar px-4 text-sidebar-foreground">
-    <div class={cn('flex shrink-0 items-center gap-3', collapsed ? 'w-16 justify-center' : 'w-60')}>
-      <div
-        class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-primary text-sm font-bold text-primary-foreground shadow-sm"
-      >
+  <!-- 顶栏：60px，与侧栏同色、无下边框；logo 55px + 系统名 18px·500·字距1px -->
+  <header class="flex h-[60px] shrink-0 items-center justify-between bg-sidebar px-3 text-sidebar-foreground">
+    <div class="flex min-w-0 items-center gap-3">
+      <div class="grid h-[55px] w-[55px] shrink-0 place-items-center rounded-[12px] bg-primary text-[24px] font-bold text-primary-foreground">
         S
       </div>
-      {#if !collapsed}
-        <div class="min-w-0">
-          <div class="truncate text-base font-semibold">stream-hub</div>
-          <div class="truncate text-xs text-sidebar-muted">流媒体分发控制台</div>
-        </div>
-      {/if}
+      <span
+        class="truncate text-[18px] font-medium tracking-[1px] text-white"
+        style="text-shadow: 0 0 1px #fff, 0 0 1px #fff"
+      >流媒体输出分发平台</span>
     </div>
 
-    <button
-      class={topBtn}
-      onclick={() => (collapsed = !collapsed)}
-      title={collapsed ? '展开菜单' : '收起菜单'}
-      aria-label={collapsed ? '展开菜单' : '收起菜单'}
-    >
-      <Icon name="menu" size={18} />
-    </button>
-
-    <span class="text-base font-medium">{crumbs[view]}</span>
-    <span class="flex-1"></span>
-    <span class="hidden text-xs text-warning lg:inline">
+    <span class="hidden text-[18px] text-warning xl:inline">
       本系统视频图像严禁拍摄、截屏、录像
     </span>
 
-    <button
-      class={topBtn}
-      onclick={switchTheme}
-      title={theme === 'dark' ? '切换浅色' : '切换深色'}
-      aria-label={theme === 'dark' ? '切换浅色' : '切换深色'}
-    >
-      <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={18} />
-    </button>
-
-    <span class="hidden items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-sidebar-muted sm:inline-flex">
-      <Icon name="user" size={15} /> {username}
-    </span>
-
-    <button
-      class="inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border border-white/15 px-3 text-sm text-sidebar-foreground transition-colors hover:bg-white/10"
-      onclick={onLogout}
-    >
-      <Icon name="logout" size={16} /> 退出
-    </button>
+    <div class="flex shrink-0 items-center gap-[10px]">
+      <button class={topBtn} onclick={toggleFullscreen} title="全屏" aria-label="全屏">
+        <Icon name="fullscreen" size={19} />
+      </button>
+      <button class={topBtn} onclick={switchTheme} title={theme === 'dark' ? '切换浅色' : '切换深色'} aria-label="切换主题">
+        <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={19} />
+      </button>
+      <span class="hidden items-center gap-2 sm:flex">
+        <span class="grid h-8 w-8 place-items-center rounded-full border-2 border-border bg-card text-[14px] font-medium text-foreground">
+          {username.slice(0, 1).toUpperCase()}
+        </span>
+        <span class="text-[14px]">{username}</span>
+      </span>
+      <button class={topBtn} onclick={onLogout} title="退出登录" aria-label="退出登录">
+        <Icon name="logout" size={19} />
+      </button>
+    </div>
   </header>
 
   <div class="flex min-h-0 flex-1">
-    <!-- 侧栏：与顶栏同色，从顶栏下方开始，构成深色骨架的竖边 -->
+    <!-- 侧栏：244px / padding 0 12px；菜单项 46px 高、14px 字、20px 图标、选中主色实心 -->
     <aside
       class={cn(
         'ui-scroll flex shrink-0 flex-col overflow-y-auto bg-sidebar text-sidebar-foreground transition-[width] duration-200',
-        collapsed ? 'w-16' : 'w-60',
+        collapsed ? 'w-[88px]' : 'w-[244px]',
       )}
     >
-      <div class="flex-1 px-2.5 pb-4 pt-4">
+      <div class="flex-1 px-3 pb-4 pt-4">
         {#if !collapsed}
-          <div class="px-3 pb-2 text-xs font-semibold tracking-widest text-sidebar-muted">
-            功能菜单
-          </div>
+          <div class="px-3 pb-2 text-[14px] font-medium text-sidebar-muted">功能菜单</div>
         {/if}
 
-        <button class={itemClass(view === 'monitor')} onclick={() => go('monitor')} title="系统监控">
-          <Icon name="monitor" size={18} />
+        <button class={itemClass(view === 'monitor', collapsed)} onclick={() => go('monitor')} title="系统监控">
+          <Icon name="monitor" size={20} class={iconHover} />
           {#if !collapsed}<span>系统监控</span>{/if}
         </button>
 
         <button
-          class={cn(itemClass(view !== 'monitor'), 'mt-1')}
+          class={cn(itemClass(view !== 'monitor', collapsed), 'mt-1')}
           onclick={() => (manageOpen = !manageOpen)}
           title="系统管理"
         >
-          <Icon name="settings" size={18} />
+          <Icon name="settings" size={20} class={iconHover} />
           {#if !collapsed}
             <span class="flex-1 text-left">系统管理</span>
             <Icon
               name="chevron-down"
-              size={14}
+              size={16}
               class={cn('transition-transform', manageOpen ? '' : '-rotate-90')}
             />
           {/if}
@@ -142,29 +124,35 @@
 
         {#if manageOpen && !collapsed}
           <div class="ml-5 mt-1 space-y-0.5 border-l border-white/10 pl-3">
-            <button class={cn(itemClass(view === 'roles'), 'py-2.5 text-sm')} onclick={() => go('roles')}>
-              <Icon name="roles" size={16} /> 角色管理
+            <button class={itemClass(view === 'roles')} onclick={() => go('roles')}>
+              <Icon name="roles" size={19} class={iconHover} /> 角色管理
             </button>
-            <button class={cn(itemClass(view === 'users'), 'py-2.5 text-sm')} onclick={() => go('users')}>
-              <Icon name="user" size={16} /> 用户管理
+            <button class={itemClass(view === 'users')} onclick={() => go('users')}>
+              <Icon name="user" size={19} class={iconHover} /> 用户管理
             </button>
-            <button class={cn(itemClass(view === 'settings'), 'py-2.5 text-sm')} onclick={() => go('settings')}>
-              <Icon name="settings" size={16} /> 系统配置
+            <button class={itemClass(view === 'settings')} onclick={() => go('settings')}>
+              <Icon name="settings" size={19} class={iconHover} /> 系统配置
             </button>
           </div>
         {/if}
       </div>
 
-      {#if !collapsed}
-        <div class="border-t border-white/10 px-4 py-3 text-xs text-sidebar-muted">
-          stream-hub · 演示环境
-        </div>
-      {/if}
+      <!-- 折叠按钮：26×26 / 1px 边框 / 10px 圆角（xc-side-bar L159-182） -->
+      <div class="flex justify-center border-t border-white/10 py-3">
+        <button
+          class="grid h-[26px] w-[26px] place-items-center rounded-[10px] border border-border bg-background text-foreground transition-colors hover:opacity-80"
+          onclick={() => (collapsed = !collapsed)}
+          title={collapsed ? '展开菜单' : '收起菜单'}
+          aria-label={collapsed ? '展开菜单' : '收起菜单'}
+        >
+          <Icon name="menu" size={14} />
+        </button>
+      </div>
     </aside>
 
-    <!-- 内容面板：左上内凹圆弧，深色骨架从圆角处透出；边框让暗色主题下也能看清圆弧 -->
+    <!-- 内容区：padding 12px / 左上圆角 10px / 上+左边框 / 无阴影 -->
     <main
-      class="ui-scroll min-w-0 flex-1 overflow-auto rounded-tl-[22px] border-l border-t border-border/30 bg-background p-6 text-foreground shadow-sm"
+      class="ui-scroll min-w-0 flex-1 overflow-auto rounded-tl-[10px] border-l border-t border-border bg-background p-3 text-foreground"
     >
       <div class="mx-auto max-w-[1440px] ui-fade-in">
         {#if view === 'monitor'}

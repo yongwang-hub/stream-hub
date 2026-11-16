@@ -14,6 +14,7 @@ import (
 	"stream-hub/internal/auth"
 	"stream-hub/internal/httpx"
 	"stream-hub/internal/media"
+	"stream-hub/internal/metrics"
 	"stream-hub/internal/stream"
 	"stream-hub/internal/user"
 )
@@ -25,6 +26,7 @@ type Deps struct {
 	Stream      *stream.Handler
 	Authn       *auth.Authenticator
 	Admin       *auth.AdminHandler // 真实账号/角色管理接口；nil 表示未启用认证时不暴露
+	Metrics     *metrics.Handler   // 系统指标快照；实时增量走 system-metrics SSE 频道
 	Ready       func(context.Context) error
 	DebugRoutes bool
 	Static      http.Handler // 运行时从磁盘 dist/ 读取的静态文件服务；nil 表示不托管页面
@@ -63,6 +65,11 @@ func New(d Deps) http.Handler {
 		mux.Handle("POST /api/v1/roles", authorize(d.Authn, auth.PermRoleManage, d.Admin.CreateRole))
 		mux.Handle("PUT /api/v1/roles/{id}", authorize(d.Authn, auth.PermRoleManage, d.Admin.UpdateRole))
 		mux.Handle("DELETE /api/v1/roles/{id}", authorize(d.Authn, auth.PermRoleManage, d.Admin.DeleteRole))
+	}
+
+	// 系统指标快照：只做认证（登录即可查看监控），实时增量复用 system-metrics SSE 频道。
+	if d.Metrics != nil {
+		mux.Handle("GET /api/v1/metrics", needAuth(d.Authn, d.Metrics.Snapshot))
 	}
 
 	// 健康检查：liveness 不做任何依赖检查，readiness 才碰 DB。

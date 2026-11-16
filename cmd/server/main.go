@@ -22,6 +22,7 @@ import (
 	"stream-hub/internal/db"
 	"stream-hub/internal/httprouter"
 	"stream-hub/internal/media"
+	"stream-hub/internal/metrics"
 	"stream-hub/internal/middleware"
 	"stream-hub/internal/obs"
 	"stream-hub/internal/stream"
@@ -123,6 +124,11 @@ func run(configPath string) error {
 	mediaHandler := media.NewHandler(media.NewService(mediaStore, hub.Publisher()))
 	streamHandler := stream.NewHandler(hub)
 
+	// 系统指标：单例采集器按 2 秒采样，历史定长 120 点（4 分钟），
+	// 每采一次向 SSE 频道 system-metrics 发一个增量点；多个前端连接共享同一次采样。
+	metricsSvc := metrics.NewService(metrics.NewCollector(), hub.Publisher(), 2*time.Second, 120)
+	metricsHandler := metrics.NewHandler(metricsSvc)
+
 	// readiness：DB 连通 + 连接池水位（sqlite 单写者跳过水位判断，否则永远 not ready）。
 	ready := func(ctx context.Context) error {
 		if sqldb == nil {
@@ -201,6 +207,7 @@ func run(configPath string) error {
 		Stream:      streamHandler,
 		Authn:       authn,
 		Admin:       adminHandler,
+		Metrics:     metricsHandler,
 		Ready:       ready,
 		DebugRoutes: cfg.Server.DebugRoutes,
 		Static:      webui.Handler(),
@@ -217,6 +224,10 @@ func run(configPath string) error {
 		WriteTimeout:      cfg.Server.WriteTimeout.Std(),
 		IdleTimeout:       cfg.Server.IdleTimeout.Std(),
 	}
+
+	// 采样循环在 HTTP 服务起来前启动：首帧立即采一次，首屏打开就能拿到数据。
+	metricsSvc.Start(context.Background())
+	defer metricsSvc.Stop()
 
 	// 启动横幅：在结构化日志之前给人一份清晰的可访问信息（前端地址/健康检查/认证/前端是否就位）。
 	printBanner(cfg.Server.Addr, cfg.Observability.InternalAddr, Version, cfg.Auth.Secret != "")

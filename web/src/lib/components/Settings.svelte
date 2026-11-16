@@ -6,7 +6,7 @@
   import { inputClass, labelClass } from '../ui/classes';
 
   const defaults: SystemConfig = {
-    system_name: 'stream-hub 流媒体分发控制台',
+    system_name: 'stream-hub 流媒体输出分发平台',
     addr: ':8080',
     log_level: 'info',
     token_ttl: '2h',

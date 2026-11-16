@@ -6,7 +6,7 @@
 :root {
   --radius: 0.625rem;
 
-  --background: #f6f8fb;
+  --background: hsl(240, 4%, 95%); /* 公司 Vue 主题 --xc-component-fill-color */
   --foreground: #0f172a;
   --card: #ffffff;
   --card-foreground: #0f172a;
@@ -28,9 +28,9 @@
   --input: #e2e8f0;
   --ring: #006be6;
 
-  --sidebar: #0f1c33;
-  --sidebar-foreground: #e8eefb;
-  --sidebar-muted: #8fa3c4;
+  --sidebar: hsl(222.34deg 10.43% 12.27%); /* 公司 Vue 主题 .light.dark-sidebar --xc-side-bar-bg */
+  --sidebar-foreground: #ffffff;
+  --sidebar-muted: rgba(255, 255, 255, 0.65);
   --sidebar-active: #2b6fd6;
 
   color-scheme: light;
@@ -59,9 +59,9 @@
   --input: #26314f;
   --ring: #5b8cff;
 
-  --sidebar: #060c1b; /* 比 background 更深，让内容面板的圆弧在暗色主题下也看得出来 */
-  --sidebar-foreground: #e8ecf8;
-  --sidebar-muted: #7c8db3;
+  --sidebar: hsl(222.34deg 10.43% 12.27%); /* 公司 Vue dark 主题侧栏同款色 */
+  --sidebar-foreground: #ffffff;
+  --sidebar-muted: rgba(255, 255, 255, 0.65);
   --sidebar-active: #5b8cff;
 
   color-scheme: dark;
@@ -182,15 +182,15 @@
   background: transparent;
 }
 
-/* 登录 / 改密页共用底图（src/assets/login-bg.png 由 Vite 打包进 /assets/）。 */
+/* 登录 / 改密页共用底图（src/assets/login-bg.webp 由 Vite 打包进 /assets/）。
+   原汁原味显示图片，不加任何遮罩/渐变覆盖；#0a1022 仅作图片加载失败时的兜底色。 */
 .auth-bg {
   position: fixed;
   inset: 0;
   display: flex;
   flex-direction: column;
-  background:
-    linear-gradient(90deg, rgba(5, 10, 26, 0.55) 0%, rgba(5, 10, 26, 0.2) 45%, rgba(5, 10, 26, 0.72) 100%),
-    url('./assets/login-bg.png') center / cover no-repeat,
-    radial-gradient(1100px 620px at 20% 32%, #16305e, transparent),
-    linear-gradient(160deg, #0a1022, #0b1020);
+  background: url('./assets/login-bg.webp') center / cover no-repeat #0a1022;
+  /* 字体族照公司 Vue 项目 shared-styles/src/base/index.scss */
+  font-family: Inter, 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', '微软雅黑', Arial,
+    sans-serif;
 }
