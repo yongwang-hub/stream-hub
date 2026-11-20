@@ -1,6 +1,6 @@
-// 管理端 HTTP 接口：真实用户 / 角色的增删改查。
-// 认证、强制改密、权限判定都由 httprouter.authorize 在外层完成，这里只管请求体 ⇄ Repo。
-package auth
+// 管理端 HTTP 接口：用户 / 角色的增删改查。
+// 认证、强制改密、权限判定由 platform/http 注册器在外层完成，这里只管请求体 ⇄ Repo。
+package identity
 
 import (
 	"encoding/json"
@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"stream-hub/internal/httpx"
+	"stream-hub/internal/platform/auth"
 )
 
 // 管理端业务码（102xx 段，避开 demo user 的 100xx 与认证中间件的 10100）。
@@ -76,8 +77,8 @@ func (h *AdminHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// 不允许删掉自己：否则当前 token 立刻失效，且可能把系统锁在没有管理员的状态。
-	if claims := FromContext(r.Context()); claims != nil {
-		if uid, err := uidFromSubject(claims.Subject); err == nil && uid == id {
+	if claims := auth.FromContext(r.Context()); claims != nil {
+		if uid, err := auth.UIDFromSubject(claims.Subject); err == nil && uid == id {
 			httpx.BizError(w, CodeAdminForbidden, "不能删除当前登录账号")
 			return
 		}

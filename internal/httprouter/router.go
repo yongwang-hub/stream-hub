@@ -9,10 +9,11 @@ import (
 	"net/http"
 	"time"
 
-	"stream-hub/internal/auth"
 	"stream-hub/internal/httpx"
+	"stream-hub/internal/identity"
 	"stream-hub/internal/media"
 	"stream-hub/internal/metrics"
+	"stream-hub/internal/platform/auth"
 	platformhttp "stream-hub/internal/platform/http"
 	"stream-hub/internal/stream"
 	"stream-hub/internal/systemconfig"
@@ -23,7 +24,7 @@ type Deps struct {
 	Media        *media.Handler
 	Stream       *stream.Handler
 	Authn        *auth.Authenticator
-	Admin        *auth.AdminHandler    // 真实账号/角色管理接口；nil 表示未启用认证时不暴露
+	Admin        *identity.AdminHandler // 真实账号/角色管理接口；nil 表示未启用认证时不暴露
 	Metrics      *metrics.Handler      // 系统指标快照；实时增量走 system-metrics SSE 频道
 	SystemConfig *systemconfig.Handler // 运行时系统配置（读登录即可，写需 config:manage 权限）
 	Ready        func(context.Context) error

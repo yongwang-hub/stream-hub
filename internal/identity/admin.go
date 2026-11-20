@@ -1,9 +1,6 @@
-// 管理端数据层：直接读写真实账号体系 sys_users / sys_roles / 关联表。
-//
-// 与 demo 的 /users（users 表，name/email）刻意分开：这里管的是登录身份与 RBAC，
-// 密码用 bcrypt、用户与角色通过 sys_user_roles 关联、角色权限通过 sys_role_permissions 关联。
-// 所有 SQL 都走 Dialect.Rebind / IgnoredInsert，保持 sqlite / mysql / postgres 三方言通用。
-package auth
+// Package identity 账号/角色管理业务切片：sys_users / sys_roles 及关联表的 CRUD 与种子数据。
+// 认证原语（JWT/中间件/权限码/bcrypt）在 internal/platform/auth，本包复用而非重复实现。
+package identity
 
 import (
 	"context"
@@ -13,6 +10,7 @@ import (
 	"strings"
 
 	"stream-hub/internal/db"
+	"stream-hub/internal/platform/auth"
 )
 
 // 管理端哨兵错误，由 handler 翻译成业务码。
@@ -160,7 +158,7 @@ func (r *AdminRepo) CreateUser(ctx context.Context, in AdminUserInput) (AdminUse
 	if username == "" || in.Password == "" {
 		return AdminUser{}, fmt.Errorf("%w: username and password required", ErrAdminInvalid)
 	}
-	hash, err := HashPassword(in.Password)
+	hash, err := auth.HashPassword(in.Password)
 	if err != nil {
 		return AdminUser{}, err
 	}
@@ -209,7 +207,7 @@ func (r *AdminRepo) UpdateUser(ctx context.Context, id int, in AdminUserInput) (
 		args = append(args, in.Email)
 	}
 	if in.Password != "" {
-		hash, err := HashPassword(in.Password)
+		hash, err := auth.HashPassword(in.Password)
 		if err != nil {
 			return AdminUser{}, err
 		}
@@ -477,8 +475,8 @@ func (r *AdminRepo) setRolePermissions(ctx context.Context, tx *sql.Tx, roleID i
 
 // validatePermissions 只接受 seed 里登记过的权限码，避免写入无效权限。
 func validatePermissions(codes []string) error {
-	known := make(map[string]bool, len(AllPermissions))
-	for _, c := range AllPermissions {
+	known := make(map[string]bool, len(auth.AllPermissions))
+	for _, c := range auth.AllPermissions {
 		known[c] = true
 	}
 	for _, c := range codes {

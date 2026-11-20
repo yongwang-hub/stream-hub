@@ -1,6 +1,6 @@
 // account/seed 集成测试：在内存 SQLite 上跑真实迁移 + seed，验证登录信息、
 // 权限集合、改密流程、以及 seed 的幂等性。用真实 bcrypt，不 mock。
-package auth
+package identity
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"stream-hub/internal/db"
+	"stream-hub/internal/platform/auth"
 )
 
 // newMemDB 建一个内存 SQLite 并跑迁移 + seed，返回连接池与所用方言。
@@ -38,7 +39,7 @@ func newMemDB(t *testing.T) (*sql.DB, db.Dialect) {
 // TestSeedAdminAccount seed 出的 admin：密码是 admin、尚未改过密（首登需强制改）。
 func TestSeedAdminAccount(t *testing.T) {
 	dbs, d := newMemDB(t)
-	repo := NewAccountRepo(dbs, d)
+	repo := auth.NewAccountRepo(dbs, d)
 	acct, err := repo.FindForLogin(context.Background(), DefaultAdminUsername)
 	if err != nil {
 		t.Fatalf("FindForLogin(admin): %v", err)
@@ -46,10 +47,10 @@ func TestSeedAdminAccount(t *testing.T) {
 	if acct.PasswordChanged {
 		t.Error("初始 admin 应标记为『从未改密』(PasswordChanged=false)")
 	}
-	if err := checkPassword(acct.PasswordHash, DefaultAdminPassword); err != nil {
+	if err := auth.CheckPassword(acct.PasswordHash, DefaultAdminPassword); err != nil {
 		t.Errorf("seed 的密码应能匹配 %q: %v", DefaultAdminPassword, err)
 	}
-	if err := checkPassword(acct.PasswordHash, "wrong"); err == nil {
+	if err := auth.CheckPassword(acct.PasswordHash, "wrong"); err == nil {
 		t.Error("错误密码不该匹配")
 	}
 }
@@ -57,7 +58,7 @@ func TestSeedAdminAccount(t *testing.T) {
 // TestAuthorizeAdminPerms admin 角色应拿到全部权限码。
 func TestAuthorizeAdminPerms(t *testing.T) {
 	dbs, d := newMemDB(t)
-	repo := NewAccountRepo(dbs, d)
+	repo := auth.NewAccountRepo(dbs, d)
 	acct, _ := repo.FindForLogin(context.Background(), DefaultAdminUsername)
 	info, err := repo.Authorize(context.Background(), acct.ID)
 	if err != nil {
@@ -66,7 +67,7 @@ func TestAuthorizeAdminPerms(t *testing.T) {
 	if !info.Enabled {
 		t.Fatal("admin 应是启用状态")
 	}
-	for _, code := range AllPermissions {
+	for _, code := range auth.AllPermissions {
 		if !info.Permissions[code] {
 			t.Errorf("admin 缺少权限 %q", code)
 		}
@@ -76,12 +77,12 @@ func TestAuthorizeAdminPerms(t *testing.T) {
 // TestChangePasswordFlow 改密：验旧密码→写新密码→PasswordChanged 变 true→旧密码失效。
 func TestChangePasswordFlow(t *testing.T) {
 	dbs, d := newMemDB(t)
-	repo := NewAccountRepo(dbs, d)
+	repo := auth.NewAccountRepo(dbs, d)
 	acct, _ := repo.FindForLogin(context.Background(), DefaultAdminUsername)
 	ctx := context.Background()
 
 	// 旧密码不对 → ErrPasswordMismatch，且不改动。
-	if err := repo.ChangePassword(ctx, acct.ID, "not-admin", "newsecret"); !errors.Is(err, ErrPasswordMismatch) {
+	if err := repo.ChangePassword(ctx, acct.ID, "not-admin", "newsecret"); !errors.Is(err, auth.ErrPasswordMismatch) {
 		t.Fatalf("期望 ErrPasswordMismatch，实际 %v", err)
 	}
 	// 旧密码对 → 成功。
@@ -93,10 +94,10 @@ func TestChangePasswordFlow(t *testing.T) {
 	if !after.PasswordChanged {
 		t.Error("改密后 PasswordChanged 应变 true")
 	}
-	if err := checkPassword(after.PasswordHash, "newsecret"); err != nil {
+	if err := auth.CheckPassword(after.PasswordHash, "newsecret"); err != nil {
 		t.Errorf("新密码应可用: %v", err)
 	}
-	if err := checkPassword(after.PasswordHash, DefaultAdminPassword); err == nil {
+	if err := auth.CheckPassword(after.PasswordHash, DefaultAdminPassword); err == nil {
 		t.Error("旧密码应已失效")
 	}
 }
@@ -119,8 +120,8 @@ func TestSeedIdempotent(t *testing.T) {
 // TestAuthorizeUnknownUser 不存在的用户 → ErrAccountNotFound。
 func TestAuthorizeUnknownUser(t *testing.T) {
 	dbs, d := newMemDB(t)
-	repo := NewAccountRepo(dbs, d)
-	if _, err := repo.Authorize(context.Background(), 99999); !errors.Is(err, ErrAccountNotFound) {
+	repo := auth.NewAccountRepo(dbs, d)
+	if _, err := repo.Authorize(context.Background(), 99999); !errors.Is(err, auth.ErrAccountNotFound) {
 		t.Errorf("期望 ErrAccountNotFound，实际 %v", err)
 	}
 }

@@ -3,7 +3,7 @@
 // 分工原则（设计里定的）：结构交给方言迁移文件，初始数据交给 Go——因为 seed 要能
 // 算 bcrypt、要判断"已存在就跳过"，用代码更可控。整个函数可重复执行，每次启动跑一遍都安全。
 // 非可移植部分（幂等插入写法、新行 id 取法）都经 Dialect 收口。
-package auth
+package identity
 
 import (
 	"database/sql"
@@ -12,6 +12,7 @@ import (
 	"log/slog"
 
 	"stream-hub/internal/db"
+	"stream-hub/internal/platform/auth"
 )
 
 // DefaultAdminUsername / DefaultAdminPassword 是出厂管理员账号的初始凭据：固定 admin/admin。
@@ -26,7 +27,7 @@ const (
 // Seed 写入权限字典、admin 角色、admin 账号，并把它们关联起来。全部幂等。
 func Seed(dbs *sql.DB, d db.Dialect) error {
 	// 1) 权限字典。
-	for _, code := range AllPermissions {
+	for _, code := range auth.AllPermissions {
 		q := d.Rebind(d.IgnoredInsert(`INSERT OR IGNORE INTO sys_permissions (code) VALUES (?)`))
 		if _, err := dbs.Exec(q, code); err != nil {
 			return fmt.Errorf("seed permission %q: %w", code, err)
@@ -51,7 +52,7 @@ func Seed(dbs *sql.DB, d db.Dialect) error {
 	err := dbs.QueryRow(d.Rebind(`SELECT id FROM sys_users WHERE username = ?`), DefaultAdminUsername).Scan(&adminID)
 	if errors.Is(err, sql.ErrNoRows) {
 		password := DefaultAdminPassword
-		hash, herr := HashPassword(password)
+		hash, herr := auth.HashPassword(password)
 		if herr != nil {
 			return herr
 		}

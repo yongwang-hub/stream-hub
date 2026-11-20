@@ -17,14 +17,15 @@ import (
 	"syscall"
 	"time"
 
-	"stream-hub/internal/auth"
 	"stream-hub/internal/config"
 	"stream-hub/internal/db"
 	"stream-hub/internal/httprouter"
+	"stream-hub/internal/identity"
 	"stream-hub/internal/media"
 	"stream-hub/internal/metrics"
 	"stream-hub/internal/middleware"
 	"stream-hub/internal/obs"
+	"stream-hub/internal/platform/auth"
 	"stream-hub/internal/stream"
 	"stream-hub/internal/systemconfig"
 	"stream-hub/internal/webui"
@@ -169,7 +170,7 @@ func run(configPath string) error {
 			return errors.New("auth enabled (auth.secret set) requires database.driver = sqlite|mysql|postgres — the account/RBAC store needs a persistent database")
 		}
 		// 表已由上面的迁移建好，这里只做幂等 seed（admin/admin + admin 角色 + 权限）。
-		if err := auth.Seed(sqldb, dialect); err != nil {
+		if err := identity.Seed(sqldb, dialect); err != nil {
 			return fmt.Errorf("seed rbac: %w", err)
 		}
 		authn = auth.New(cfg.Auth.Secret, cfg.Auth.TokenTTL.Std(), auth.NewAccountRepo(sqldb, dialect))
@@ -180,9 +181,9 @@ func run(configPath string) error {
 
 	// 管理端（真实账号体系）只在认证启用时装配：auth 关闭时这些接口根本不注册，
 	// 避免出现「无需登录就能改用户/角色」的敞口。
-	var adminHandler *auth.AdminHandler
+	var adminHandler *identity.AdminHandler
 	if authn != nil {
-		adminHandler = auth.NewAdminHandler(auth.NewAdminRepo(sqldb, dialect))
+		adminHandler = identity.NewAdminHandler(identity.NewAdminRepo(sqldb, dialect))
 	}
 
 	// 中间件链 + 路由。顺序有讲究（从外到内）：
