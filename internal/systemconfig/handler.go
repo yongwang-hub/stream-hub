@@ -13,8 +13,8 @@ import (
 
 // 系统配置模块的业务码（3xxxx 段）。
 const (
-	CodeInvalidParam  = 30001 // 参数校验不通过
-	CodeInvalidUpload = 30002 // 上传文件不合法
+	CodeConfigInvalidParam = 30001 // 参数校验不通过
+	CodeInvalidUpload      = 30002 // 上传文件不合法
 )
 
 // 单张图片上限 5MiB；落盘目录与 URL 前缀由平台层 storage 决定。
@@ -108,7 +108,7 @@ func (h *Handler) writeError(w http.ResponseWriter, err error) {
 	var vErr *ValidationError
 	switch {
 	case errors.As(err, &vErr):
-		httpx.BizError(w, CodeInvalidParam, vErr.Msg)
+		httpx.BizError(w, CodeConfigInvalidParam, vErr.Msg)
 	default:
 		httpx.InternalError(w)
 	}

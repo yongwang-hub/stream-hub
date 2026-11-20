@@ -103,7 +103,7 @@ func (a *Authenticator) MiddlewareQueryToken(next http.Handler) http.Handler {
 	})
 }
 
-// CodePasswordChangeRequired 首登必须先改密的业务码（HTTP 200）。
+// CodePasswordChangeRequired 首登必须先改密的业务码（HTTP 200，101xx 认证号段）。
 const CodePasswordChangeRequired = 10100
 
 // EnforcePasswordChange 强制改密关卡：MustChange=true 时挡在所有业务接口之外。

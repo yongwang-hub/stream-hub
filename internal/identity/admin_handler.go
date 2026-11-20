@@ -14,7 +14,7 @@ import (
 	"stream-hub/internal/platform/auth"
 )
 
-// 管理端业务码（102xx 段，避开 demo user 的 100xx 与认证中间件的 10100）。
+// 管理端业务码（102xx 段；101xx 归认证关卡，见 platform/auth）。
 const (
 	CodeAdminInvalid   = 10201
 	CodeAdminNotFound  = 10202

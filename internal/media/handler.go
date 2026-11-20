@@ -11,9 +11,9 @@ import (
 
 // 频道模块业务码（2xxxx 段，与 httpx 的 9xxxx 系统码分开）。
 const (
-	CodeInvalidParam    = 20001
-	CodeChannelNotFound = 20002
-	CodeDuplicateSlug   = 20003
+	CodeChannelInvalidParam = 20001
+	CodeChannelNotFound     = 20002
+	CodeDuplicateSlug       = 20003
 )
 
 // Handler 只做 HTTP ⇄ Service 的翻译。
@@ -108,7 +108,7 @@ func (h *Handler) writeError(w http.ResponseWriter, err error) {
 	var v *ValidationError
 	switch {
 	case errors.As(err, &v):
-		httpx.BizError(w, CodeInvalidParam, v.Msg)
+		httpx.BizError(w, CodeChannelInvalidParam, v.Msg)
 	case errors.Is(err, ErrNotFound):
 		httpx.BizError(w, CodeChannelNotFound, "频道不存在")
 	case errors.Is(err, ErrDuplicateSlug):
