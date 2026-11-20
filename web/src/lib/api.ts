@@ -145,15 +145,27 @@ export interface AdminRoleInput {
   permissions?: string[]; // 不传 = 不改权限；空数组 = 清空
 }
 
-/** 系统配置页的接口契约仍待后端实现：GET/PUT /api/v1/config。当前仅本地预览。 */
+/** 系统配置：可改字段落库、只读元数据由后端启动时采集一次。与后端 systemconfig.Config 一一对应。 */
 export interface SystemConfig {
-  system_name: string;
-  addr: string;
-  log_level: string;
-  token_ttl: string;
-  db_driver: string;
-  db_dsn: string;
+  product_name: string;
+  product_model: string;
+  serial_number: string;
+  product_version: string;
+  login_bg: string;
+  product_icon: string;
+  warning_text: string;
+  watermark: boolean;
+  license_days: number;
+  machine_code: string;
+  activation_code: string;
+  started_at: string; // RFC3339，前端据此算运行时长
 }
+
+/** 系统配置里允许修改的字段子集，与后端 systemconfig.Writable 对应。 */
+export type SystemConfigWritable = Pick<
+  SystemConfig,
+  'product_name' | 'login_bg' | 'product_icon' | 'warning_text' | 'watermark' | 'activation_code'
+>;
 
 export const api = {
   // login / changePassword 都可能因“密码不对”回 401，必须 auth:false，
@@ -226,4 +238,47 @@ export const api = {
     }),
   deleteRole: (id: number) =>
     request<{ deleted: number }>(`/api/v1/roles/${id}`, { method: 'DELETE' }),
+
+  // ---- 系统配置（真接口 /api/v1/system-config）----
+  getSystemConfig: () => request<SystemConfig>('/api/v1/system-config'),
+  updateSystemConfig: (input: SystemConfigWritable) =>
+    request<SystemConfig>('/api/v1/system-config', {
+      method: 'PUT',
+      body: json(input),
+    }),
 };
+
+/** 上传图片（系统配置的背景/图标）：FormData 不能带 application/json 头，故走独立 fetch。 */
+export async function uploadImage(file: File): Promise<string> {
+  const form = new FormData();
+  form.append('file', file);
+  const headers = new Headers();
+  const token = getToken();
+  if (token) headers.set('Authorization', `Bearer ${token}`);
+
+  let response: Response;
+  try {
+    response = await fetch('/api/v1/system-config/upload', {
+      method: 'POST',
+      headers,
+      body: form,
+    });
+  } catch (err) {
+    throw new ApiError(-1, `网络错误：${err instanceof Error ? err.message : String(err)}`);
+  }
+  if (response.status === 401) {
+    clearToken();
+    handlers.onUnauthorized?.();
+    throw new ApiError(CODE_UNAUTHENTICATED, '登录已失效，请重新登录');
+  }
+  let body: Envelope<{ url: string }>;
+  try {
+    body = (await response.json()) as Envelope<{ url: string }>;
+  } catch {
+    throw new ApiError(response.status, `响应不是 JSON（HTTP ${response.status}）`);
+  }
+  if (!response.ok || body.code !== CODE_OK) {
+    throw new ApiError(body.code || response.status, body.msg || `上传失败（HTTP ${response.status}）`);
+  }
+  return body.data!.url;
+}

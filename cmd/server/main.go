@@ -26,6 +26,7 @@ import (
 	"stream-hub/internal/middleware"
 	"stream-hub/internal/obs"
 	"stream-hub/internal/stream"
+	"stream-hub/internal/systemconfig"
 	"stream-hub/internal/user"
 	"stream-hub/internal/webui"
 )
@@ -129,6 +130,17 @@ func run(configPath string) error {
 	metricsSvc := metrics.NewService(metrics.NewCollector(), hub.Publisher(), 2*time.Second, 120)
 	metricsHandler := metrics.NewHandler(metricsSvc)
 
+	// 系统配置：可改字段落库、只读元数据启动时采集一次；无内存缓存，读直达 DB。
+	var configStore systemconfig.Store
+	if sqldb != nil {
+		configStore = systemconfig.NewDBStore(sqldb, dialect)
+	} else {
+		configStore = systemconfig.NewMemStore()
+	}
+	sysInfo := systemconfig.NewSystemInfo(Version, cfg.System.Model, cfg.System.Serial, cfg.System.LicenseDays)
+	configSvc := systemconfig.NewService(configStore, sysInfo)
+	configHandler := systemconfig.NewHandler(configSvc)
+
 	// readiness：DB 连通 + 连接池水位（sqlite 单写者跳过水位判断，否则永远 not ready）。
 	ready := func(ctx context.Context) error {
 		if sqldb == nil {
@@ -202,15 +214,16 @@ func run(configPath string) error {
 	}
 	mws = append(mws, middleware.Recover, middleware.MaxBody(cfg.Server.MaxBodyBytes))
 	handler := middleware.Chain(mws...)(httprouter.New(httprouter.Deps{
-		User:        userHandler,
-		Media:       mediaHandler,
-		Stream:      streamHandler,
-		Authn:       authn,
-		Admin:       adminHandler,
-		Metrics:     metricsHandler,
-		Ready:       ready,
-		DebugRoutes: cfg.Server.DebugRoutes,
-		Static:      webui.Handler(),
+		User:         userHandler,
+		Media:        mediaHandler,
+		Stream:       streamHandler,
+		Authn:        authn,
+		Admin:        adminHandler,
+		Metrics:      metricsHandler,
+		SystemConfig: configHandler,
+		Ready:        ready,
+		DebugRoutes:  cfg.Server.DebugRoutes,
+		Static:       webui.Handler(),
 	}))
 
 	// 用配置里的地址造 Server，并挂上一组超时——这是面向公网的底线防护：

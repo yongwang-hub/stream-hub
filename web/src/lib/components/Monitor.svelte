@@ -3,7 +3,6 @@
   // 首屏 GET /api/v1/metrics 补历史，SSE system-metrics 频道收增量。
   import { onMount } from 'svelte';
   import Card from '../ui/Card.svelte';
-  import Badge from '../ui/Badge.svelte';
   import Icon from '../ui/Icon.svelte';
   import {
     fetchMetricsSnapshot,
@@ -66,21 +65,7 @@
   });
 </script>
 
-<div class="space-y-5">
-  <div class="flex flex-wrap items-center justify-between gap-3">
-    <div>
-      <h2 class="text-xl font-semibold tracking-tight">系统监控</h2>
-      <p class="mt-1 text-sm text-muted-foreground">真实系统指标 · 每 2 秒刷新</p>
-    </div>
-    {#if status === 'open'}
-      <Badge variant="success">● 实时采集中</Badge>
-    {:else if status === 'connecting'}
-      <Badge variant="secondary">○ 连接中…</Badge>
-    {:else}
-      <Badge variant="warning">○ 指标采集未连接</Badge>
-    {/if}
-  </div>
-
+<div>
   {#if !latest}
     <div class="rounded-xl border border-border bg-card px-6 py-16 text-center">
       <Icon name="monitor" size={32} class="mx-auto text-muted-foreground" />

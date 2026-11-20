@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"stream-hub/internal/stream"
+	"stream-hub/internal/systemconfig"
 )
 
 func TestHealthEndpoints(t *testing.T) {
@@ -93,5 +94,40 @@ func TestSSEStreamsWithoutBuffering(t *testing.T) {
 		case <-deadline:
 			t.Fatal("未收到发布事件")
 		}
+	}
+}
+
+func TestSystemConfigRoutesMounted(t *testing.T) {
+	info := systemconfig.NewSystemInfo("V1.0.0", "MODEL-X", "SN-1", 10)
+	svc := systemconfig.NewService(systemconfig.NewMemStore(), info)
+	h := New(Deps{SystemConfig: systemconfig.NewHandler(svc)}) // auth=nil → 直通，便于验证挂载
+
+	// GET 应返回默认配置（含只读元数据）。
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/v1/system-config", nil))
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"product_name"`) {
+		t.Fatalf("GET system-config: status=%d body=%s", w.Code, w.Body.String())
+	}
+
+	// PUT 应更新。
+	w = httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodPut, "/api/v1/system-config", strings.NewReader(`{"product_name":"路由测试平台"}`))
+	h.ServeHTTP(w, r)
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "路由测试平台") {
+		t.Fatalf("PUT system-config: status=%d body=%s", w.Code, w.Body.String())
+	}
+
+	// upload 路由存在（空 body 会回业务码而非 404）。
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/api/v1/system-config/upload", nil))
+	if w.Code == http.StatusNotFound {
+		t.Fatal("upload route not mounted")
+	}
+
+	// /uploads/ 静态路由存在（空目录访问不应 404 路由层面）。
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/uploads/nope.webp", nil))
+	if w.Code == http.StatusNotFound && strings.Contains(w.Body.String(), "not found") && !strings.Contains(w.Body.String(), `"code"`) {
+		t.Fatal("/uploads static route not mounted")
 	}
 }

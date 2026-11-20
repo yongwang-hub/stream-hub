@@ -1,5 +1,6 @@
 <script lang="ts">
   import { api } from '../api';
+  import { config } from '../systemConfig.svelte';
   import Icon from '../ui/Icon.svelte';
   import { toast } from '../ui/toast.svelte';
 
@@ -7,15 +8,36 @@
   //   品牌区 absolute top/left 30px，logo 78px，文字 24px/600/字距3.6px/skewX(-8deg)
   //   表单 460x480 / 圆角10px / padding 20px 30px / 透明无阴影 / 右侧8%
   //   输入框下划线风格（border-bottom 1px #d8d8d8），按钮 40px 高，无验证码行。
+  // 复选框文案/行为同源码：记住密码（勾选则连用户名一起存入本地、下次回填）。
   interface Props {
     onLogin: (token: string, mustChange: boolean) => void;
   }
   let { onLogin }: Props = $props();
 
-  const REMEMBER_KEY = 'sh.login.username';
-  let username = $state(localStorage.getItem(REMEMBER_KEY) ?? 'admin');
-  let password = $state('');
-  let remember = $state(localStorage.getItem(REMEMBER_KEY) !== null);
+  // 与 Vue 源码一致：复选框是「记住密码」，勾选时把用户名 + 密码一起存本地并在下次回填。
+  // 存储做 Base64 混淆（对齐源码 AES 的“不明文落盘”意图；前端密钥本身不具备保密性）。
+  // token 仍只存内存，所以每次打开依然是登录页，只是账号密码已填好。
+  const REMEMBER_KEY = 'sh.login.data';
+  const encode = (s: string): string =>
+    btoa(String.fromCharCode(...new TextEncoder().encode(s)));
+  const decode = (s: string): string =>
+    new TextDecoder().decode(Uint8Array.from(atob(s), (c) => c.charCodeAt(0)));
+
+  interface SavedLogin {
+    username: string;
+    password: string;
+  }
+  localStorage.removeItem('sh.login.username'); // 清理旧版“只记用户名”的残留键。
+  let saved: SavedLogin | null = null;
+  try {
+    const raw = localStorage.getItem(REMEMBER_KEY);
+    if (raw) saved = JSON.parse(decode(raw)) as SavedLogin;
+  } catch {
+    saved = null;
+  }
+  let username = $state(saved?.username ?? 'admin');
+  let password = $state(saved?.password ?? '');
+  let remember = $state(saved !== null);
   let showPassword = $state(false);
   let busy = $state(false);
 
@@ -27,8 +49,11 @@
     busy = true;
     try {
       const result = await api.login(username, password);
-      if (remember) localStorage.setItem(REMEMBER_KEY, username);
-      else localStorage.removeItem(REMEMBER_KEY);
+      if (remember) {
+        localStorage.setItem(REMEMBER_KEY, encode(JSON.stringify({ username, password })));
+      } else {
+        localStorage.removeItem(REMEMBER_KEY);
+      }
       toast.success('登录成功');
       onLogin(result.token, result.must_change);
     } catch (err) {
@@ -39,20 +64,27 @@
   }
 </script>
 
-<div class="auth-bg">
+<div
+  class="auth-bg"
+  style={config().login_bg ? `background: url('${config().login_bg}') center / cover no-repeat #0a1022` : ''}
+>
   <!-- 品牌区：absolute top/left 30px，78px logo + 2px 分隔线 + 倾斜白色标题 -->
   <div class="absolute left-[30px] top-[30px] flex items-center">
-    <span
-      class="grid h-[78px] w-[78px] shrink-0 place-items-center rounded-[18px] bg-primary text-[32px] font-bold text-primary-foreground shadow-lg"
-    >
-      S
-    </span>
+    {#if config().product_icon}
+      <img src={config().product_icon} alt="产品图标" class="h-[78px] w-[78px] shrink-0 rounded-[18px] bg-white/90 object-contain shadow-lg" />
+    {:else}
+      <span
+        class="grid h-[78px] w-[78px] shrink-0 place-items-center rounded-[18px] bg-primary text-[32px] font-bold text-primary-foreground shadow-lg"
+      >
+        S
+      </span>
+    {/if}
     <div class="relative ml-5">
       <span class="absolute -left-[10px] top-1/2 h-[28px] w-[2px] -translate-y-1/2 bg-[#979797]"></span>
       <span
         class="block text-[24px] font-semibold tracking-[3.6px] text-white"
         style="transform: skewX(-8deg)"
-      >流媒体输出分发平台</span>
+      >{config().product_name}</span>
     </div>
   </div>
 
@@ -97,7 +129,7 @@
 
     <label class="ml-2 mt-5 flex cursor-pointer select-none items-center gap-2 text-[14px] text-white">
       <input type="checkbox" class="h-4 w-4 accent-primary" bind:checked={remember} />
-      记住用户名
+      记住密码
     </label>
 
     <button

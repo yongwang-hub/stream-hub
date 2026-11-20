@@ -16,20 +16,22 @@ import (
 	"stream-hub/internal/media"
 	"stream-hub/internal/metrics"
 	"stream-hub/internal/stream"
+	"stream-hub/internal/systemconfig"
 	"stream-hub/internal/user"
 )
 
 // Deps 是组合根注入的全部依赖；nil 表示对应能力未启用。
 type Deps struct {
-	User        *user.Handler
-	Media       *media.Handler
-	Stream      *stream.Handler
-	Authn       *auth.Authenticator
-	Admin       *auth.AdminHandler // 真实账号/角色管理接口；nil 表示未启用认证时不暴露
-	Metrics     *metrics.Handler   // 系统指标快照；实时增量走 system-metrics SSE 频道
-	Ready       func(context.Context) error
-	DebugRoutes bool
-	Static      http.Handler // 运行时从磁盘 dist/ 读取的静态文件服务；nil 表示不托管页面
+	User         *user.Handler
+	Media        *media.Handler
+	Stream       *stream.Handler
+	Authn        *auth.Authenticator
+	Admin        *auth.AdminHandler    // 真实账号/角色管理接口；nil 表示未启用认证时不暴露
+	Metrics      *metrics.Handler      // 系统指标快照；实时增量走 system-metrics SSE 频道
+	SystemConfig *systemconfig.Handler // 运行时系统配置（读登录即可，写需 config:manage 权限）
+	Ready        func(context.Context) error
+	DebugRoutes  bool
+	Static       http.Handler // 运行时从磁盘 dist/ 读取的静态文件服务；nil 表示不托管页面
 }
 
 const streamPathPrefix = "/api/v1/stream/"
@@ -72,6 +74,14 @@ func New(d Deps) http.Handler {
 		mux.Handle("GET /api/v1/metrics", needAuth(d.Authn, d.Metrics.Snapshot))
 	}
 
+	// 系统配置：读公开（登录页需要产品名称/图标/背景渲染，这些是展示型数据不含敏感信息）；
+	// 写与图片上传需要 config:manage 权限。
+	if d.SystemConfig != nil {
+		mux.Handle("GET /api/v1/system-config", http.HandlerFunc(d.SystemConfig.Get))
+		mux.Handle("PUT /api/v1/system-config", authorize(d.Authn, auth.PermConfigManage, d.SystemConfig.Update))
+		mux.Handle("POST /api/v1/system-config/upload", authorize(d.Authn, auth.PermConfigManage, d.SystemConfig.Upload))
+	}
+
 	// 健康检查：liveness 不做任何依赖检查，readiness 才碰 DB。
 	mux.HandleFunc("GET /ping", ping)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -109,6 +119,10 @@ func New(d Deps) http.Handler {
 		mux.Handle("GET /{$}", d.Static)
 		mux.Handle("GET /assets/", d.Static)
 	}
+
+	// 上传的图片（系统配置里的背景/图标）：落盘在 data/uploads/，按相对 URL 提供。
+	// 图片本身不含敏感信息，走公开静态服务；文件名是随机串，不可枚举。
+	mux.Handle("GET /uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir("data/uploads"))))
 
 	// 流式 mux：绝不套 JSONErrors。
 	streamMux := http.NewServeMux()

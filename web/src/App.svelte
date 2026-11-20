@@ -4,6 +4,8 @@
   import { clearToken, getToken, setAuthHandlers, setToken } from './lib/api';
   import { toast } from './lib/ui/toast.svelte';
   import Toaster from './lib/ui/Toaster.svelte';
+  import Watermark from './lib/ui/Watermark.svelte';
+  import { config, loadConfig } from './lib/systemConfig.svelte';
   import Login from './lib/components/Login.svelte';
   import ChangePassword from './lib/components/ChangePassword.svelte';
   import AdminShell from './lib/components/AdminShell.svelte';
@@ -11,6 +13,16 @@
   // token 与 must_change 都只存内存：刷新 / 重开页面一律回到登录页。
   let token = $state<string | null>(getToken());
   let mustChange = $state(false);
+
+  // 浏览器标题跟随「产品名称」配置。
+  $effect(() => {
+    document.title = `stream-hub · ${config().product_name}`;
+  });
+
+  // 启动即加载配置：GET 已公开，登录页需要它来渲染背景/图标/标题/警示语。
+  $effect(() => {
+    void loadConfig();
+  });
 
   setAuthHandlers({
     onUnauthorized: () => {
@@ -27,6 +39,7 @@
     setToken(newToken);
     token = newToken;
     mustChange = must;
+    void loadConfig(); // 拿到 token 后加载真实系统配置（标题/图标/背景/水印等）
   }
 
   // 改密成功后后端会重签 token，直接用新 token 进入主界面。
@@ -34,6 +47,7 @@
     setToken(newToken);
     token = newToken;
     mustChange = false;
+    void loadConfig();
   }
 
   function logout(): void {
@@ -55,5 +69,7 @@
 {/if}
 
 {#if mustChange}
-  <ChangePassword onDone={handlePasswordChanged} onCancel={logout} />
+  <ChangePassword mode="force" onDone={handlePasswordChanged} />
 {/if}
+
+<Watermark />

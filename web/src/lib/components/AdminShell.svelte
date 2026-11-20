@@ -8,9 +8,12 @@
   import Roles from './Roles.svelte';
   import Users from './Users.svelte';
   import Settings from './Settings.svelte';
+  import ChangePassword from './ChangePassword.svelte';
   import Icon from '../ui/Icon.svelte';
+  import { toast } from '../ui/toast.svelte';
+  import { config } from '../systemConfig.svelte';
   import { cn } from '../utils';
-  import { currentTheme, toggleTheme, type Theme } from '../theme';
+  import { currentTheme, toggleThemeWithCircularReveal, type Theme } from '../theme';
 
   type View = 'monitor' | 'roles' | 'users' | 'settings';
 
@@ -24,6 +27,38 @@
   let manageOpen = $state(true);
   let collapsed = $state(false);
   let theme = $state<Theme>(currentTheme());
+  let userMenuOpen = $state(false);
+  let changePwdOpen = $state(false);
+
+  // 与 Vue 源码 xc-user-popover 一致：主动改密成功后清登录态、回登录页用新密码重新登录，
+  // 不直接用后端重签的 token（源码 modify-password 成功后调 onLogout）。
+  function handlePasswordChanged(_newToken: string): void {
+    changePwdOpen = false;
+    onLogout();
+  }
+
+  // Vue 源码菜单项带快捷键 Alt+P（修改密码）/ Alt+Q（锁定屏幕）。
+  // 本项目未实现锁定屏幕，保留入口但给出提示，避免点击无反应。
+  function lockScreen(): void {
+    userMenuOpen = false;
+    toast.info('锁定屏幕功能暂未实现');
+  }
+
+  $effect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (!e.altKey) return;
+      if (e.key.toLowerCase() === 'p') {
+        e.preventDefault();
+        userMenuOpen = false;
+        changePwdOpen = true;
+      } else if (e.key.toLowerCase() === 'q') {
+        e.preventDefault();
+        lockScreen();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
 
   const itemClass = (active: boolean, isCollapsed = false): string =>
     cn(
@@ -42,8 +77,8 @@
     if (next !== 'monitor') manageOpen = true;
   }
 
-  function switchTheme(): void {
-    theme = toggleTheme();
+  function switchTheme(event: MouseEvent): void {
+    theme = toggleThemeWithCircularReveal(event);
   }
 
   function toggleFullscreen(): void {
@@ -56,17 +91,21 @@
   <!-- 顶栏：60px，与侧栏同色、无下边框；logo 55px + 系统名 18px·500·字距1px -->
   <header class="flex h-[60px] shrink-0 items-center justify-between bg-sidebar px-3 text-sidebar-foreground">
     <div class="flex min-w-0 items-center gap-3">
-      <div class="grid h-[55px] w-[55px] shrink-0 place-items-center rounded-[12px] bg-primary text-[24px] font-bold text-primary-foreground">
-        S
-      </div>
+      {#if config().product_icon}
+        <img src={config().product_icon} alt="产品图标" class="h-[55px] w-[55px] shrink-0 rounded-[12px] object-contain" />
+      {:else}
+        <div class="grid h-[55px] w-[55px] shrink-0 place-items-center rounded-[12px] bg-primary text-[24px] font-bold text-primary-foreground">
+          S
+        </div>
+      {/if}
       <span
         class="truncate text-[18px] font-medium tracking-[1px] text-white"
         style="text-shadow: 0 0 1px #fff, 0 0 1px #fff"
-      >流媒体输出分发平台</span>
+      >{config().product_name}</span>
     </div>
 
-    <span class="hidden text-[18px] text-warning xl:inline">
-      本系统视频图像严禁拍摄、截屏、录像
+    <span class="hidden max-w-[46%] truncate text-[18px] text-warning xl:inline">
+      {config().warning_text}
     </span>
 
     <div class="flex shrink-0 items-center gap-[10px]">
@@ -76,15 +115,67 @@
       <button class={topBtn} onclick={switchTheme} title={theme === 'dark' ? '切换浅色' : '切换深色'} aria-label="切换主题">
         <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={19} />
       </button>
-      <span class="hidden items-center gap-2 sm:flex">
-        <span class="grid h-8 w-8 place-items-center rounded-full border-2 border-border bg-card text-[14px] font-medium text-foreground">
-          {username.slice(0, 1).toUpperCase()}
-        </span>
-        <span class="text-[14px]">{username}</span>
-      </span>
-      <button class={topBtn} onclick={onLogout} title="退出登录" aria-label="退出登录">
-        <Icon name="logout" size={19} />
-      </button>
+      <!-- 头像下拉：照 Vue xc-user-popover 的 hover 弹出样式（280px、无箭头、底部整行退出） -->
+      <div
+        class="relative"
+        role="presentation"
+        onmouseenter={() => (userMenuOpen = true)}
+        onmouseleave={() => (userMenuOpen = false)}
+      >
+        <button
+          class="grid h-9 w-9 place-items-center rounded-full border-2 border-white/40 overflow-hidden"
+          title="用户菜单"
+          aria-label="用户菜单"
+        >
+          <span class="grid h-full w-full place-items-center bg-primary text-[14px] font-medium text-primary-foreground">
+            {username.slice(0, 1).toUpperCase()}
+          </span>
+        </button>
+
+        {#if userMenuOpen}
+          <!-- 透明间隙桥接头像与菜单，避免鼠标移到菜单途中触发 mouseleave -->
+          <div class="absolute right-0 top-full h-2 w-[280px]"></div>
+          <div class="absolute right-0 top-full z-30 mt-2 w-[280px] overflow-hidden rounded-[8px] border border-border bg-card text-card-foreground shadow-xl">
+            <div class="flex items-center gap-3 px-4 py-3">
+              <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary text-[16px] font-medium text-primary-foreground">
+                {username.slice(0, 1).toUpperCase()}
+              </span>
+              <span class="min-w-0">
+                <span class="block truncate text-[14px] font-semibold">{username}</span>
+                <span class="block truncate text-xs text-muted-foreground">{username}@stream-hub.local</span>
+              </span>
+            </div>
+            <div class="border-t border-border"></div>
+            <div class="py-1">
+              <button
+                class="flex h-10 w-full items-center gap-3 px-4 text-left text-[14px] transition-colors hover:bg-muted"
+                onclick={() => { userMenuOpen = false; changePwdOpen = true; }}
+              >
+                <Icon name="password" size={17} />
+                <span class="flex-1">修改密码</span>
+                <span class="text-xs text-muted-foreground">Alt + P</span>
+              </button>
+              <button
+                class="flex h-10 w-full items-center gap-3 px-4 text-left text-[14px] transition-colors hover:bg-muted"
+                onclick={lockScreen}
+              >
+                <Icon name="lock" size={17} />
+                <span class="flex-1">锁定屏幕</span>
+                <span class="text-xs text-muted-foreground">Alt + Q</span>
+              </button>
+            </div>
+            <div class="border-t border-border"></div>
+            <div class="p-2">
+              <button
+                class="h-9 w-full rounded-[6px] border border-input bg-background text-[14px] transition-colors hover:bg-muted"
+                onclick={onLogout}
+              >
+                退出登录
+              </button>
+            </div>
+          </div>
+        {/if}
+      </div>
     </div>
   </header>
 
@@ -167,4 +258,12 @@
       </div>
     </main>
   </div>
+
+  {#if changePwdOpen}
+    <ChangePassword
+      mode="active"
+      onDone={handlePasswordChanged}
+      onCancel={() => (changePwdOpen = false)}
+    />
+  {/if}
 </div>

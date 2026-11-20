@@ -40,11 +40,20 @@ func TestMigrateSQLiteAppliesAllVersionsIdempotently(t *testing.T) {
 	if err := dbs.QueryRow(`SELECT COUNT(*) FROM channels`).Scan(&n); err != nil {
 		t.Fatalf("0002 迁移未生效: %v", err)
 	}
+	if err := dbs.QueryRow(`SELECT COUNT(*) FROM sys_config`).Scan(&n); err != nil {
+		t.Fatalf("0003 迁移未生效: %v", err)
+	}
+	// 版本数从内嵌目录动态统计，避免新增迁移后还要手改断言。
+	pending, err := loadPending(d.MigrationsSubdir(), nil)
+	if err != nil {
+		t.Fatalf("load migrations: %v", err)
+	}
+	want := len(pending)
 	var versions int
 	if err := dbs.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&versions); err != nil {
 		t.Fatalf("schema_migrations: %v", err)
 	}
-	if versions != 2 {
-		t.Errorf("应记录 0001/0002 两个版本，实际 %d", versions)
+	if versions != want {
+		t.Errorf("应记录 %d 个版本，实际 %d", want, versions)
 	}
 }

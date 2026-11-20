@@ -45,6 +45,15 @@ type Config struct {
 	Auth          Auth          `yaml:"auth"`
 	CORS          CORS          `yaml:"cors"`
 	Observability Observability `yaml:"observability"`
+	System        System        `yaml:"system"`
+}
+
+// System 是系统配置页里「启动期只读」的元数据：型号/序列号/授权天数。
+// 版本由构建注入、机器码取硬件信息、运行时间取进程启动时刻，都不放这里。
+type System struct {
+	Model       string `yaml:"model"`        // 产品型号
+	Serial      string `yaml:"serial"`       // 序列号
+	LicenseDays int    `yaml:"license_days"` // 授权剩余天数；>=9999 前端显示"永久授权"
 }
 
 // Server 是 HTTP 服务的可调参数，对应 yaml 里的 server 段。
@@ -143,6 +152,11 @@ func Default() Config {
 		},
 		Observability: Observability{
 			InternalAddr: "", // 默认关；本地做性能分析时在 config.yaml 打开
+		},
+		System: System{
+			Model:       "STREAM-HUB-1000",
+			Serial:      "SH-2026-0000-0001",
+			LicenseDays: 1090,
 		},
 	}
 }

@@ -35,12 +35,13 @@ const (
 	PermRoleManage    = "role:manage"
 	PermChannelManage = "channel:manage"
 	PermStreamPublish = "stream:publish"
+	PermConfigManage  = "config:manage"
 )
 
 // AllPermissions 是 seed 要写入 sys_permissions 的全集，也是路由引用的权威清单。
 var AllPermissions = []string{
 	PermUserList, PermUserRead, PermUserCreate, PermUserUpdate, PermUserDelete,
-	PermRoleManage, PermChannelManage, PermStreamPublish,
+	PermRoleManage, PermChannelManage, PermStreamPublish, PermConfigManage,
 }
 
 // LoginAccount 登录校验所需的最小信息。

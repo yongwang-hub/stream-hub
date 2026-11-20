@@ -194,3 +194,16 @@
   font-family: Inter, 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', '微软雅黑', Arial,
     sans-serif;
 }
+
+/* 主题切换圆形扩散（照公司 Vue shared-styles/src/base/index.scss）：
+   clip-path 关键帧由 theme.ts 的 toggleThemeWithCircularReveal 用 Web Animations API 驱动，
+   这里关闭 View Transition 默认淡入淡出，并按目标主题置顶对应快照层。 */
+html.dark::view-transition-old(root),
+html.light::view-transition-new(root) {
+  z-index: 9999999999;
+}
+::view-transition-new(root),
+::view-transition-old(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
