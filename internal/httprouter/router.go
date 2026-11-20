@@ -17,12 +17,10 @@ import (
 	"stream-hub/internal/metrics"
 	"stream-hub/internal/stream"
 	"stream-hub/internal/systemconfig"
-	"stream-hub/internal/user"
 )
 
 // Deps 是组合根注入的全部依赖；nil 表示对应能力未启用。
 type Deps struct {
-	User         *user.Handler
 	Media        *media.Handler
 	Stream       *stream.Handler
 	Authn        *auth.Authenticator
@@ -46,17 +44,8 @@ func New(d Deps) http.Handler {
 		mux.Handle("PUT /me/password", needAuth(d.Authn, d.Authn.ChangePassword))
 	}
 
-	// 用户 demo CRUD（阶段 1 保留，后续由业务模块取代）。
-	if d.User != nil {
-		mux.Handle("POST /users", authorize(d.Authn, auth.PermUserCreate, d.User.Create))
-		mux.Handle("GET /users", authorize(d.Authn, auth.PermUserList, d.User.List))
-		mux.Handle("GET /users/{id}", authorize(d.Authn, auth.PermUserRead, d.User.Get))
-		mux.Handle("PUT /users/{id}", authorize(d.Authn, auth.PermUserUpdate, d.User.Update))
-		mux.Handle("DELETE /users/{id}", authorize(d.Authn, auth.PermUserDelete, d.User.Delete))
-	}
-
-	// 真实账号体系管理接口：操作 sys_users / sys_roles，走 RBAC 权限码。
-	// 与上面的 demo /users 完全分离，前端「用户管理 / 角色管理」两页对接这里。
+	// 账号体系管理接口：操作 sys_users / sys_roles，走 RBAC 权限码。
+	// 前端「用户管理 / 角色管理」两页对接这里。
 	if d.Admin != nil {
 		mux.Handle("GET /api/v1/users", authorize(d.Authn, auth.PermUserList, d.Admin.ListUsers))
 		mux.Handle("POST /api/v1/users", authorize(d.Authn, auth.PermUserCreate, d.Admin.CreateUser))

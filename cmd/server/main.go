@@ -27,7 +27,6 @@ import (
 	"stream-hub/internal/obs"
 	"stream-hub/internal/stream"
 	"stream-hub/internal/systemconfig"
-	"stream-hub/internal/user"
 	"stream-hub/internal/webui"
 )
 
@@ -105,13 +104,11 @@ func run(configPath string) error {
 	// 组装数据层→业务层→接口层（组合根：依赖在此一站式建好再往下注入）。
 	// 根据配置选内存 / SQLite / MySQL / PostgreSQL；上层 service/handler 不知道也不关心。
 	// d 是选定数据库的方言（内存模式为无效零值），sqldb 是底层 *sql.DB（内存模式为 nil）。
-	store, sqldb, dialect, closeDB, err := newStore(cfg.Database)
+	sqldb, dialect, closeDB, err := openDB(cfg.Database)
 	if err != nil {
 		return err
 	}
 	defer closeDB() // run 返回（关停后）才真正关库
-
-	userHandler := user.NewHandler(user.NewService(store))
 
 	// 阶段 1：SSE hub（订阅/广播/心跳/断线清理）+ 频道模块。
 	// hub 同时被 media（状态变更广播）与 stream（订阅/发布）复用，是两者的唯一装配点。
@@ -214,7 +211,6 @@ func run(configPath string) error {
 	}
 	mws = append(mws, middleware.Recover, middleware.MaxBody(cfg.Server.MaxBodyBytes))
 	handler := middleware.Chain(mws...)(httprouter.New(httprouter.Deps{
-		User:         userHandler,
 		Media:        mediaHandler,
 		Stream:       streamHandler,
 		Authn:        authn,
@@ -345,18 +341,18 @@ func parseLevel(s string) slog.Level {
 	}
 }
 
-// newStore 根据配置构建数据层，返回(存储, 底层*sql.DB, 方言, 关闭函数, 错误)。
-// driver=memory → 内存表，sqldb 为 nil（也就无法启用认证，main 里有校验）；
-// 其余先由 db.For 解析方言（不可识别则报错），再按方言打开连接池并构造 dbStore。
+// openDB 根据配置打开数据库，返回(底层*sql.DB, 方言, 关闭函数, 错误)。
+// driver=memory → sqldb 为 nil（也就无法启用认证，main 里有校验）；各业务模块自行选内存/DB 实现。
+// 其余先由 db.For 解析方言（不可识别则报错），再按方言打开连接池。
 // 注：方言与连接池在此一次性决定，运行期不再变——要换库只能改配置 + 重启。
-func newStore(dbcfg config.Database) (user.Store, *sql.DB, db.Dialect, func(), error) {
+func openDB(dbcfg config.Database) (*sql.DB, db.Dialect, func(), error) {
 	if strings.EqualFold(dbcfg.Driver, "memory") {
 		slog.Info("using in-memory store", "service", serviceName)
-		return user.NewStore(), nil, db.Dialect{}, func() {}, nil
+		return nil, db.Dialect{}, func() {}, nil
 	}
 	d, ok := db.For(dbcfg.Driver)
 	if !ok {
-		return nil, nil, db.Dialect{}, nil, fmt.Errorf("unknown database.driver %q (want memory|sqlite|mysql|postgres)", dbcfg.Driver)
+		return nil, db.Dialect{}, nil, fmt.Errorf("unknown database.driver %q (want memory|sqlite|mysql|postgres)", dbcfg.Driver)
 	}
 	sqldb, err := d.Open(dbcfg.DSN, db.Pool{
 		MaxOpenConns:    dbcfg.MaxOpenConns,
@@ -364,9 +360,9 @@ func newStore(dbcfg config.Database) (user.Store, *sql.DB, db.Dialect, func(), e
 		ConnMaxLifetime: dbcfg.ConnMaxLifetime.Std(),
 	})
 	if err != nil {
-		return nil, nil, db.Dialect{}, nil, err
+		return nil, db.Dialect{}, nil, err
 	}
 	// 只打 driver，不打 DSN：MySQL/PG 的连接串里含账号密码，不能进日志。
 	slog.Info("using sql store", "service", serviceName, "driver", d.Name())
-	return user.NewDBStore(sqldb, d), sqldb, d, func() { sqldb.Close() }, nil
+	return sqldb, d, func() { sqldb.Close() }, nil
 }

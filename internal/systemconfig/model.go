@@ -4,7 +4,7 @@
 //   - 可改字段（产品名称/背景/图标/警示语/水印/激活码）落库到 sys_config 单行表；
 //   - 只读元数据（型号/序列号/版本/授权天数/机器码/启动时间）在启动时采集一次，运行期不变。
 //
-// 分层沿用 internal/user：store.go 数据层接口、dbstore.go 数据库实现、service.go 业务层、handler.go 接口层。
+// 分层约定：store.go 数据层接口、dbstore.go 数据库实现、service.go 业务层、handler.go 接口层。
 // 读多写少但不做内存缓存（项目内存敏感）：GET 直接查库，单行 SELECT 开销可忽略。
 package systemconfig
 
