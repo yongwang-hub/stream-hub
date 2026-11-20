@@ -114,7 +114,7 @@ func TestDBStoreRoundTrip(t *testing.T) {
 
 func TestHandlerGetAndUpdate(t *testing.T) {
 	svc := NewService(NewMemStore(), testInfo())
-	h := NewHandler(svc)
+	h := NewHandler(svc, nil)
 
 	// GET 首次返回默认值
 	rec := newRecorder()

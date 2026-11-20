@@ -15,6 +15,7 @@ import (
 	"stream-hub/internal/metrics"
 	"stream-hub/internal/platform/auth"
 	platformhttp "stream-hub/internal/platform/http"
+	"stream-hub/internal/platform/storage"
 	"stream-hub/internal/stream"
 	"stream-hub/internal/systemconfig"
 )
@@ -30,6 +31,7 @@ type Deps struct {
 	Ready        func(context.Context) error
 	DebugRoutes  bool
 	Static       http.Handler
+	UploadDir    string // 上传文件落盘目录；空则用 storage.DefaultDir
 }
 
 // New 创建装配好路由的 handler。
@@ -85,8 +87,12 @@ func New(d Deps) http.Handler {
 		r.Handle("GET /assets/", d.Static)
 	}
 
-	// 上传的图片：落盘在 data/uploads/，按相对 URL 提供。文件名随机，不可枚举。
-	r.Handle("GET /uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir("data/uploads"))))
+	// 上传的图片：目录与 URL 前缀由平台层 storage 统一提供，避免 handler 与 router 各写一份。
+	uploadDir := d.UploadDir
+	if uploadDir == "" {
+		uploadDir = storage.DefaultDir
+	}
+	r.Handle("GET "+storage.DefaultURLPath, http.StripPrefix(storage.DefaultURLPath, http.FileServer(http.Dir(uploadDir))))
 
 	return r.Handler()
 }

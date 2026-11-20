@@ -1,14 +1,10 @@
 package systemconfig
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -21,24 +17,26 @@ const (
 	CodeInvalidUpload = 30002 // 上传文件不合法
 )
 
-// 上传目录与 URL 前缀：图片落盘到 data/uploads/，DB 只存相对 URL。
-const (
-	uploadDir = "data/uploads"
-	uploadURL = "/uploads/"
-	maxUpload = 5 << 20 // 单张图片上限 5MiB
-)
+// 单张图片上限 5MiB；落盘目录与 URL 前缀由平台层 storage 决定。
+const maxUpload = 5 << 20
 
 var allowedImageExt = map[string]bool{
 	".png": true, ".jpg": true, ".jpeg": true, ".webp": true, ".gif": true,
 }
 
-// Handler 是接口层：只负责 HTTP 请求/响应翻译。
-type Handler struct {
-	svc *Service
+// Uploader 是上传落盘能力（依赖倒置：接口声明在使用方，实现由组合根注入）。
+type Uploader interface {
+	Save(ext string, data []byte) (url string, err error)
 }
 
-func NewHandler(svc *Service) *Handler {
-	return &Handler{svc: svc}
+// Handler 是接口层：只负责 HTTP 请求/响应翻译。
+type Handler struct {
+	svc     *Service
+	uploads Uploader
+}
+
+func NewHandler(svc *Service, uploads Uploader) *Handler {
+	return &Handler{svc: svc, uploads: uploads}
 }
 
 // Get 处理 GET /api/v1/system-config。
@@ -68,6 +66,10 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 
 // Upload 处理 POST /api/v1/system-config/upload：落盘图片，返回可引用的相对 URL。
 func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
+	if h.uploads == nil {
+		httpx.BizError(w, CodeInvalidUpload, "上传功能未启用")
+		return
+	}
 	if err := r.ParseMultipartForm(maxUpload + 1<<20); err != nil {
 		httpx.BizError(w, CodeInvalidUpload, "图片过大或格式错误")
 		return
@@ -92,29 +94,13 @@ func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 随机文件名：不信任客户端文件名，杜绝路径穿越与覆盖。
-	name, err := randomName(ext)
+	// 落盘交给平台层 storage：目录创建、随机命名、URL 拼装都在那里。
+	url, err := h.uploads.Save(ext, data)
 	if err != nil {
 		httpx.InternalError(w)
 		return
 	}
-	if err := os.MkdirAll(uploadDir, 0o755); err != nil {
-		httpx.InternalError(w)
-		return
-	}
-	if err := os.WriteFile(filepath.Join(uploadDir, name), data, 0o644); err != nil {
-		httpx.InternalError(w)
-		return
-	}
-	httpx.OK(w, map[string]string{"url": uploadURL + name})
-}
-
-func randomName(ext string) (string, error) {
-	b := make([]byte, 16)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("%s%s", hex.EncodeToString(b), ext), nil
+	httpx.OK(w, map[string]string{"url": url})
 }
 
 // writeError 把下层错误翻译成业务码，一律 HTTP 200（与项目两轴规范一致）。

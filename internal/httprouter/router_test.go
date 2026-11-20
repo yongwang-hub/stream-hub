@@ -100,7 +100,7 @@ func TestSSEStreamsWithoutBuffering(t *testing.T) {
 func TestSystemConfigRoutesMounted(t *testing.T) {
 	info := systemconfig.NewSystemInfo("V1.0.0", "MODEL-X", "SN-1", 10)
 	svc := systemconfig.NewService(systemconfig.NewMemStore(), info)
-	h := New(Deps{SystemConfig: systemconfig.NewHandler(svc)}) // auth=nil → 直通，便于验证挂载
+	h := New(Deps{SystemConfig: systemconfig.NewHandler(svc, nil)}) // auth=nil → 直通，便于验证挂载
 
 	// GET 应返回默认配置（含只读元数据）。
 	w := httptest.NewRecorder()
