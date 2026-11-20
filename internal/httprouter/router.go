@@ -1,20 +1,19 @@
 // Package httprouter 负责装配路由：把「URL 路径 + HTTP 方法」映射到处理函数。
 //
-// 阶段 1 的硬约束：SSE 路由必须绕过 httpx.JSONErrors（它全量缓冲响应、不实现 Flusher），
-// 因此这里用「两个 mux + 路径分流」：普通 JSON 路由走包裹后的 mux，
-// GET /api/v1/stream/* 直接走流式 mux，保证 http.Flusher 是真正的下游 writer。
+// 本包现在是纯路由表：只声明「有哪些接口、各自什么鉴权级别」，
+// 鉴策略与 JSON/SSE 协议分流由 internal/platform/http.Router 统一处理。
 package httprouter
 
 import (
 	"context"
 	"net/http"
-	"strings"
 	"time"
 
 	"stream-hub/internal/auth"
 	"stream-hub/internal/httpx"
 	"stream-hub/internal/media"
 	"stream-hub/internal/metrics"
+	platformhttp "stream-hub/internal/platform/http"
 	"stream-hub/internal/stream"
 	"stream-hub/internal/systemconfig"
 )
@@ -32,128 +31,98 @@ type Deps struct {
 	Static       http.Handler // 运行时从磁盘 dist/ 读取的静态文件服务；nil 表示不托管页面
 }
 
-const streamPathPrefix = "/api/v1/stream/"
-
 // New 创建装配好路由的 handler。
 func New(d Deps) http.Handler {
-	mux := http.NewServeMux()
+	// 注意 typed-nil：*Authenticator(nil) 直接传给接口参数后接口非 nil，
+	// 会让注册器误以为认证已启用而挂上鉴权关卡。只在真正非 nil 时才赋值接口。
+	var authn platformhttp.Authenticator
+	if d.Authn != nil {
+		authn = d.Authn
+	}
+	r := platformhttp.New(authn)
 
 	// 登录 / 改密：登录入口公开，改密只需登录态。
 	if d.Authn != nil {
-		mux.Handle("POST /login", http.HandlerFunc(d.Authn.Login))
-		mux.Handle("PUT /me/password", needAuth(d.Authn, d.Authn.ChangePassword))
+		r.Public("POST /login", d.Authn.Login)
+		r.NeedAuth("PUT /me/password", d.Authn.ChangePassword)
 	}
 
 	// 账号体系管理接口：操作 sys_users / sys_roles，走 RBAC 权限码。
-	// 前端「用户管理 / 角色管理」两页对接这里。
 	if d.Admin != nil {
-		mux.Handle("GET /api/v1/users", authorize(d.Authn, auth.PermUserList, d.Admin.ListUsers))
-		mux.Handle("POST /api/v1/users", authorize(d.Authn, auth.PermUserCreate, d.Admin.CreateUser))
-		mux.Handle("PUT /api/v1/users/{id}", authorize(d.Authn, auth.PermUserUpdate, d.Admin.UpdateUser))
-		mux.Handle("DELETE /api/v1/users/{id}", authorize(d.Authn, auth.PermUserDelete, d.Admin.DeleteUser))
+		r.Authorize("GET /api/v1/users", auth.PermUserList, d.Admin.ListUsers)
+		r.Authorize("POST /api/v1/users", auth.PermUserCreate, d.Admin.CreateUser)
+		r.Authorize("PUT /api/v1/users/{id}", auth.PermUserUpdate, d.Admin.UpdateUser)
+		r.Authorize("DELETE /api/v1/users/{id}", auth.PermUserDelete, d.Admin.DeleteUser)
 
-		mux.Handle("GET /api/v1/roles", authorize(d.Authn, auth.PermRoleManage, d.Admin.ListRoles))
-		mux.Handle("POST /api/v1/roles", authorize(d.Authn, auth.PermRoleManage, d.Admin.CreateRole))
-		mux.Handle("PUT /api/v1/roles/{id}", authorize(d.Authn, auth.PermRoleManage, d.Admin.UpdateRole))
-		mux.Handle("DELETE /api/v1/roles/{id}", authorize(d.Authn, auth.PermRoleManage, d.Admin.DeleteRole))
+		r.Authorize("GET /api/v1/roles", auth.PermRoleManage, d.Admin.ListRoles)
+		r.Authorize("POST /api/v1/roles", auth.PermRoleManage, d.Admin.CreateRole)
+		r.Authorize("PUT /api/v1/roles/{id}", auth.PermRoleManage, d.Admin.UpdateRole)
+		r.Authorize("DELETE /api/v1/roles/{id}", auth.PermRoleManage, d.Admin.DeleteRole)
 	}
 
 	// 系统指标快照：只做认证（登录即可查看监控），实时增量复用 system-metrics SSE 频道。
 	if d.Metrics != nil {
-		mux.Handle("GET /api/v1/metrics", needAuth(d.Authn, d.Metrics.Snapshot))
+		r.NeedAuth("GET /api/v1/metrics", d.Metrics.Snapshot)
 	}
 
 	// 系统配置：读公开（登录页需要产品名称/图标/背景渲染，这些是展示型数据不含敏感信息）；
 	// 写与图片上传需要 config:manage 权限。
 	if d.SystemConfig != nil {
-		mux.Handle("GET /api/v1/system-config", http.HandlerFunc(d.SystemConfig.Get))
-		mux.Handle("PUT /api/v1/system-config", authorize(d.Authn, auth.PermConfigManage, d.SystemConfig.Update))
-		mux.Handle("POST /api/v1/system-config/upload", authorize(d.Authn, auth.PermConfigManage, d.SystemConfig.Upload))
+		r.Public("GET /api/v1/system-config", d.SystemConfig.Get)
+		r.Authorize("PUT /api/v1/system-config", auth.PermConfigManage, d.SystemConfig.Update)
+		r.Authorize("POST /api/v1/system-config/upload", auth.PermConfigManage, d.SystemConfig.Upload)
 	}
 
 	// 健康检查：liveness 不做任何依赖检查，readiness 才碰 DB。
-	mux.HandleFunc("GET /ping", ping)
-	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
+	r.Public("GET /ping", ping)
+	r.Public("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		httpx.OK(w, "ok")
 	})
-	mux.HandleFunc("GET /readyz", readyz(d.Ready))
+	r.Public("GET /readyz", readyz(d.Ready))
 
 	// 频道 CRUD：读只需登录态，写需要 channel:manage。
 	if d.Media != nil {
-		mux.Handle("GET /api/v1/channels", needAuth(d.Authn, d.Media.List))
-		mux.Handle("GET /api/v1/channels/{id}", needAuth(d.Authn, d.Media.Get))
-		mux.Handle("POST /api/v1/channels", authorize(d.Authn, auth.PermChannelManage, d.Media.Create))
-		mux.Handle("PUT /api/v1/channels/{id}", authorize(d.Authn, auth.PermChannelManage, d.Media.Update))
-		mux.Handle("DELETE /api/v1/channels/{id}", authorize(d.Authn, auth.PermChannelManage, d.Media.Delete))
+		r.NeedAuth("GET /api/v1/channels", d.Media.List)
+		r.NeedAuth("GET /api/v1/channels/{id}", d.Media.Get)
+		r.Authorize("POST /api/v1/channels", auth.PermChannelManage, d.Media.Create)
+		r.Authorize("PUT /api/v1/channels/{id}", auth.PermChannelManage, d.Media.Update)
+		r.Authorize("DELETE /api/v1/channels/{id}", auth.PermChannelManage, d.Media.Delete)
 	}
 	// 外部事件注入（联调/运维）：虽与 SSE 同前缀，但它是 JSON 响应，仍走 JSONErrors。
 	if d.Stream != nil {
-		mux.Handle("POST /api/v1/stream/{channel}/events", authorize(d.Authn, auth.PermStreamPublish, d.Stream.Publish))
+		r.Authorize("POST /api/v1/stream/{channel}/events", auth.PermStreamPublish, d.Stream.Publish)
+	}
+
+	// SSE 流：走流式注册器，支持 ?token=，绕过 JSONErrors。
+	if d.Stream != nil {
+		r.Stream("GET /api/v1/stream/{channel}", d.Stream.Subscribe)
 	}
 
 	// 演示路由：仅本地开发注册，生产由 server.debug_routes=false 关掉。
 	if d.DebugRoutes {
-		mux.HandleFunc("GET /panic", func(w http.ResponseWriter, r *http.Request) {
+		r.Public("GET /panic", func(w http.ResponseWriter, _ *http.Request) {
 			panic("boom")
 		})
-		mux.HandleFunc("GET /slow", func(w http.ResponseWriter, r *http.Request) {
+		r.Public("GET /slow", func(w http.ResponseWriter, _ *http.Request) {
 			time.Sleep(5 * time.Second)
 			httpx.OK(w, "done after 5s")
 		})
 	}
 
 	// 前端静态产物（独立 dist 目录，运行时从磁盘读取）：只暴露根路径与带内容 hash 的 /assets/。
-	// 其余路径仍由 ServeMux 404 → JSONErrors 转 JSON 信封，API 404 不会被吞成 HTML。
 	if d.Static != nil {
-		mux.Handle("GET /{$}", d.Static)
-		mux.Handle("GET /assets/", d.Static)
+		r.Handle("GET /{$}", d.Static)
+		r.Handle("GET /assets/", d.Static)
 	}
 
 	// 上传的图片（系统配置里的背景/图标）：落盘在 data/uploads/，按相对 URL 提供。
 	// 图片本身不含敏感信息，走公开静态服务；文件名是随机串，不可枚举。
-	mux.Handle("GET /uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir("data/uploads"))))
+	r.Handle("GET /uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir("data/uploads"))))
 
-	// 流式 mux：绝不套 JSONErrors。
-	streamMux := http.NewServeMux()
-	if d.Stream != nil {
-		var sh http.Handler = http.HandlerFunc(d.Stream.Subscribe)
-		if d.Authn != nil {
-			sh = d.Authn.MiddlewareQueryToken(sh) // 支持 ?token=，EventSource 不能带自定义头
-		}
-		streamMux.Handle("GET /api/v1/stream/{channel}", sh)
-	}
-
-	jsonHandler := httpx.JSONErrors(mux)
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, streamPathPrefix) {
-			streamMux.ServeHTTP(w, r)
-			return
-		}
-		jsonHandler.ServeHTTP(w, r)
-	})
+	return r.Handler()
 }
 
-// needAuth 只挂认证关卡（Middleware）：能证明身份即可，不看权限、也不管强制改密。
-func needAuth(authn *auth.Authenticator, h http.HandlerFunc) http.Handler {
-	if authn == nil {
-		return h
-	}
-	return authn.Middleware(h)
-}
-
-// authorize 挂完整三件套：认证(401) → 强制改密关卡 → 权限判定(403)。
-func authorize(authn *auth.Authenticator, permission string, h http.HandlerFunc) http.Handler {
-	if authn == nil {
-		return h
-	}
-	return authn.Middleware(
-		authn.EnforcePasswordChange(
-			authn.RequirePermission(permission)(h),
-		),
-	)
-}
-
-func ping(w http.ResponseWriter, r *http.Request) {
+func ping(w http.ResponseWriter, _ *http.Request) {
 	httpx.OK(w, "pong")
 }
 
