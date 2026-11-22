@@ -16,13 +16,19 @@ import (
 type publishInput struct {
 	Channel string `path:"channel" doc:"频道名" minLength:"1"`
 	Body    struct {
-		Type string          `json:"type" doc:"事件类型，默认 message"`
-		Data json.RawMessage `json:"data" doc:"事件负载"`
+		Type string          `json:"type,omitempty" doc:"事件类型，默认 message"`
+		Data json.RawMessage `json:"data,omitempty" doc:"事件负载"`
 	} `json:"body"`
 }
 
+// PublishResult 是事件注入接口的载荷。
+type PublishResult struct {
+	ID      string `json:"id"`
+	Channel string `json:"channel"`
+}
+
 type publishOutput struct {
-	Body httpx.Response `json:"body"`
+	Body httpx.Envelope[PublishResult] `json:"body"`
 }
 
 // RegisterHuma 声明事件注入接口（普通 JSON）。
@@ -48,9 +54,9 @@ func (h *Handler) RegisterHuma(api huma.API) {
 			data = json.RawMessage(`{}`)
 		}
 		ev := h.hub.Publish(channel, typ, data)
-		return &publishOutput{Body: httpx.Response{
+		return &publishOutput{Body: httpx.Envelope[PublishResult]{
 			Code: httpx.CodeOK, Msg: "ok",
-			Data: map[string]any{"id": ev.ID, "channel": channel},
+			Data: PublishResult{ID: ev.ID, Channel: channel},
 		}}, nil
 	})
 }

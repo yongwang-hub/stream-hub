@@ -76,7 +76,10 @@ pnpm build        # 产物 web/dist/
 pnpm check        # svelte-check：0 error / 0 warning
 pnpm lint         # Biome
 pnpm test         # Vitest
+pnpm openapi      # 导出 spec（调 cmd/openapi）+ 生成 src/lib/api-schema.d.ts
 ```
+
+**接口类型自动生成**：`pnpm openapi` 先运行 `go -C .. run ./cmd/openapi` 产出 `web/openapi.json`，再由 `openapi-typescript` 生成 `src/lib/api-schema.d.ts`。`src/lib/types.ts` 与 `api.ts` 的类型都从这份 schema 派生，不再手写；后端改结构体后重新执行即可同步，避免前后端类型漂移。`web/openapi.json` 与 `api-schema.d.ts` 一并提交，便于 review 契约变更。
 
 - 先在另一个终端起后端（`go run ./cmd/server`），再访问 `http://localhost:5173`；Vite 默认只监听 `localhost`，用 `127.0.0.1` 可能不通。
 - `STREAM_HUB_BACKEND` 可改 proxy 目标（默认 `http://127.0.0.1:8080`）。
@@ -122,7 +125,8 @@ package/
 stream-hub/
 ├── cmd/
 │   ├── server/main.go              组合根：buildDataLayer → buildModules → buildHandler → serve
-│   └── migrate/main.go             独立迁移 CLI（部署流水线用）
+│   ├── migrate/main.go             独立迁移 CLI（部署流水线用）
+│   └── openapi/main.go             导出 OpenAPI spec（离线，供前端生成类型与 CI 契约检查）
 ├── config/config.yaml
 ├── docs/响应缓冲与流式问题.md      流式绕行方案的设计背景
 ├── internal/
@@ -163,6 +167,7 @@ stream-hub/
 - **账号 / RBAC**：`sys_users / sys_roles / sys_permissions / sys_user_roles / sys_role_permissions` 五表；用户与角色 CRUD（`/api/v1/users`、`/api/v1/roles`）；权限码单一清单在 `platform/auth`；`identity.Seed` 幂等写入 admin 角色、权限字典与 `admin/admin` 账号。
 - **系统配置**：`sys_config` 单行表存可写字段（产品名 / 背景 / 图标 / 警示语 / 水印 / 激活码）；只读元数据（版本 / 型号 / 序列号 / 机器码 / 授权天数 / 启动时间）启动采集一次；`GET` 公开供登录页渲染，写与上传需 `config:manage`；图片经 `platform/storage` 落盘 `data/uploads/`，按 `/uploads/` 提供。接口用 **Huma code-first** 声明：Go 类型自动生成 OpenAPI 3.1 + 运行期校验，响应仍沿用 `{code,msg,data}` 信封。
 - **API 文档**：`/api/v1/openapi.json` 与 `/api/v1/openapi.yaml` 由 Huma 从代码实时生成；`/api/v1/docs` 是 Scalar UI 交互文档。已覆盖全部 JSON 接口（认证 / 用户 / 角色 / 频道 / 系统配置 / 指标 / 事件注入）；SSE 订阅因走独立流式 mux 不在 spec 中。Huma 与原路由共用同一 mux 和中间件链，鉴权通过 `platform/http.HumaAuth` 桥接复用现有 JWT/RBAC 逻辑（含 claims 透传修正）。
+- **类型契约**：Huma 输出用 `httpx.Envelope[T]` 而非 `data any`，`T` 的具体结构会写进 schema；`cmd/openapi` 离线导出 spec，前端 `pnpm openapi` 生成 `api-schema.d.ts`，`types.ts`/`api.ts` 全部类型由此派生，前后端类型不再手写、不会漂移。
 - **中间件链**（顺序有硬约束）：`RequestID → CORS → Logger → [Metrics] → [Limit] → Recover → MaxBody → Handler`。CORS 最外层保证预检与 429/500 都带头；`Limit` 对 SSE 长连接豁免，不占 slot。
 - **日志**：标准库 `slog` 门面 + 可插拔 Handler——开发 `tint` 彩色人读（时间只到毫秒、级别着色），生产 `zerolog` JSON（ungrouped 路径 0 allocs）；`platform/log` 的装饰器从 context 自动注入 16 字符 `rid`，业务代码零改动即可串联全链路；访问日志用路由模板而非原始路径，`/favicon.ico` 与探针降为 DEBUG、>1s 慢请求自动升 WARN。
 - **观测**：`stream_hub_http_request_duration_seconds{method,status,pattern}`（Go 1.22 的 `r.Pattern`，零额外匹配开销）、`stream_hub_http_requests_in_flight`、5 个 `stream_hub_db_*` 连接池 GaugeFunc、pprof 全套。SSE 可按 `pattern` 从 P99 中排除。

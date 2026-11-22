@@ -12,8 +12,14 @@ import (
 
 type snapshotInput struct{}
 
+// SnapshotPayload 是指标快照接口的载荷：latest 为 nil 表示尚未采到样本。
+type SnapshotPayload struct {
+	Latest  *Snapshot  `json:"latest"`
+	History []Snapshot `json:"history"`
+}
+
 type snapshotOutput struct {
-	Body httpx.Response `json:"body"`
+	Body httpx.Envelope[SnapshotPayload] `json:"body"`
 }
 
 // RegisterHuma 用 code-first 声明指标快照接口（登录即可查看）。
@@ -23,10 +29,13 @@ func (h *Handler) RegisterHuma(api huma.API) {
 		Summary: "指标快照", Description: "首屏快照；实时增量走 SSE 频道 system-metrics。",
 		Tags: []string{"Metrics"}, Security: platformhttp.BearerSecurity(),
 	}, func(ctx context.Context, _ *snapshotInput) (*snapshotOutput, error) {
-		data := map[string]any{"latest": nil, "history": []Snapshot{}}
+		payload := SnapshotPayload{History: []Snapshot{}}
 		if latest, ok := h.svc.Latest(); ok {
-			data = map[string]any{"latest": latest, "history": h.svc.History()}
+			payload.Latest = &latest
+			payload.History = h.svc.History()
 		}
-		return &snapshotOutput{Body: httpx.Response{Code: httpx.CodeOK, Msg: "ok", Data: data}}, nil
+		return &snapshotOutput{Body: httpx.Envelope[SnapshotPayload]{
+			Code: httpx.CodeOK, Msg: "ok", Data: payload,
+		}}, nil
 	})
 }

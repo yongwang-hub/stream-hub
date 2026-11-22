@@ -145,11 +145,11 @@
               <td class={cn(tdClass, 'text-muted-foreground')}>{role.description || '—'}</td>
               <td class={tdClass}>
                 <div class="flex flex-wrap items-center gap-1">
-                  {#each role.permissions.slice(0, 2) as code}
+                  {#each (role.permissions ?? []).slice(0, 2) as code}
                     <Badge variant="outline">{code}</Badge>
                   {/each}
                   <span class="text-xs text-muted-foreground">
-                    {role.permissions.length ? `共 ${role.permissions.length} 项` : '无权限'}
+                    {(role.permissions ?? []).length ? `共 ${(role.permissions ?? []).length} 项` : '无权限'}
                   </span>
                 </div>
               </td>

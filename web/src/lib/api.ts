@@ -1,4 +1,5 @@
 // 统一封装后端 {code,msg,data} 信封、Bearer token 与两类全局鉴权跳转。
+import type { components } from './api-schema';
 import type { Channel, ChannelInput, LoginResult, TokenResult } from './types';
 
 export interface Envelope<T = unknown> {
@@ -137,58 +138,21 @@ export async function request<T>(
 
 const json = (body: unknown): string => JSON.stringify(body);
 
-/** 用户管理：真实账号体系 GET/POST/PUT/DELETE /api/v1/users（sys_users 表）。 */
-export interface AdminUser {
-  id: number;
-  username: string;
-  email: string;
-  enabled: boolean;
-  password_changed: boolean;
-  roles: string[];
-  role_ids: number[];
-}
-export interface AdminUserInput {
-  username: string;
-  password?: string; // 创建必填；更新留空 = 不改密码
-  email?: string;
-  enabled?: boolean;
-  role_ids?: number[];
-}
+// 以下类型均由 OpenAPI schema 自动派生（pnpm openapi），不再手写。
+type Schemas = components['schemas'];
 
-/** 角色管理：真实 RBAC 体系 GET/POST/PUT/DELETE /api/v1/roles（sys_roles 表）。 */
-export interface AdminRole {
-  id: number;
-  name: string;
-  description: string;
-  permissions: string[];
-}
-export interface AdminRoleInput {
-  name: string;
-  description?: string;
-  permissions?: string[]; // 不传 = 不改权限；空数组 = 清空
-}
+/** 用户管理：GET/POST/PUT/DELETE /api/v1/users。 */
+export type AdminUser = Schemas['AdminUser'];
+export type AdminUserInput = Schemas['AdminUserInput'];
 
-/** 系统配置：可改字段落库、只读元数据由后端启动时采集一次。与后端 systemconfig.Config 一一对应。 */
-export interface SystemConfig {
-  product_name: string;
-  product_model: string;
-  serial_number: string;
-  product_version: string;
-  login_bg: string;
-  product_icon: string;
-  warning_text: string;
-  watermark: boolean;
-  license_days: number;
-  machine_code: string;
-  activation_code: string;
-  started_at: string; // RFC3339，前端据此算运行时长
-}
+/** 角色管理：GET/POST/PUT/DELETE /api/v1/roles。 */
+export type AdminRole = Schemas['AdminRole'];
+export type AdminRoleInput = Schemas['AdminRoleInput'];
 
-/** 系统配置里允许修改的字段子集，与后端 systemconfig.Writable 对应。 */
-export type SystemConfigWritable = Pick<
-  SystemConfig,
-  'product_name' | 'login_bg' | 'product_icon' | 'warning_text' | 'watermark' | 'activation_code'
->;
+/** 系统配置：可改字段落库、只读元数据由后端启动时采集一次。 */
+export type SystemConfig = Schemas['Config'];
+/** 系统配置里允许修改的字段子集。 */
+export type SystemConfigWritable = Schemas['Writable'];
 
 export const api = {
   // login / changePassword 都可能因“密码不对”回 401，必须 auth:false，

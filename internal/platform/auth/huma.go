@@ -28,17 +28,21 @@ type passwordInput struct {
 	} `json:"body"`
 }
 
+// TokenResult 是登录/改密成功返回的载荷；具体类型让 OpenAPI 能描述其字段。
+type TokenResult struct {
+	Token      string `json:"token"`
+	ExpiresIn  int    `json:"expires_in"`
+	MustChange bool   `json:"must_change"`
+}
+
 type tokenOutput struct {
-	Body httpx.Response `json:"body"`
+	Body httpx.Envelope[TokenResult] `json:"body"`
 }
 
 func tokenEnvelope(code int, msg string, token string, ttl int, mustChange bool) tokenOutput {
-	return tokenOutput{Body: httpx.Response{
-		Code: code,
-		Msg:  msg,
-		Data: map[string]any{
-			"token": token, "expires_in": ttl, "must_change": mustChange,
-		},
+	return tokenOutput{Body: httpx.Envelope[TokenResult]{
+		Code: code, Msg: msg,
+		Data: TokenResult{Token: token, ExpiresIn: ttl, MustChange: mustChange},
 	}}
 }
 

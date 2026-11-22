@@ -26,6 +26,17 @@ type Response struct {
 	Data any    `json:"data,omitempty"` // 真正的业务数据；为 nil 时整个字段省略（omitempty）
 }
 
+// Envelope 是带具体载荷类型的响应信封，专用于 Huma 的输出声明。
+//
+// 与 Response 的区别只在 Data 的类型：any 让 OpenAPI schema 里的 data 退化成空对象，
+// 前端生成的 TS 类型就只能是 unknown；写成 Envelope[Config] 后 Huma 能推导出完整结构，
+// openapi-typescript 才能生成准确的字段类型。普通 handler 仍用 Response。
+type Envelope[T any] struct {
+	Code int    `json:"code"`
+	Msg  string `json:"msg"`
+	Data T      `json:"data,omitempty"`
+}
+
 // ---- 业务码约定（独立命名空间，切勿与 HTTP 状态数字混用）----
 //
 // 号段表是跨模块的唯一约定；各业务模块在自己的号段内定义常量，不在此集中定义，

@@ -77,7 +77,7 @@
       password: '',
       email: user.email,
       enabled: user.enabled,
-      role_ids: [...user.role_ids],
+      role_ids: [...(user.role_ids ?? [])],
     };
     showModal = true;
   }

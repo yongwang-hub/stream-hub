@@ -17,12 +17,8 @@ import (
 )
 
 // Huma DTO：Input/Output 的字段同时是 OpenAPI schema 与运行期校验的来源。
-// 成功响应沿用项目 {code,msg,data} 信封，前端无需改动；
-// 错误走 Huma 的标准 problem+json（更符合 REST，前端 api.ts 后续统一处理）。
-
-type configEnvelope struct {
-	Body httpx.Response `json:"body"`
-}
+// 成功响应用 httpx.Envelope[T]（T 具体），这样 data 的结构会进入 OpenAPI，
+// 前端能生成准确的 TS 类型；错误走 Huma 的标准 problem+json。
 
 type getConfigInput struct{}
 
@@ -34,8 +30,17 @@ type uploadInput struct {
 	File multipart.FileHeader `form:"file" contentType:"multipart/form-data" doc:"图片文件"`
 }
 
-func envelope(data any) configEnvelope {
-	return configEnvelope{Body: httpx.Response{Code: httpx.CodeOK, Msg: "ok", Data: data}}
+// UploadResult 是上传接口的响应载荷。
+type UploadResult struct {
+	URL string `json:"url" doc:"可直接引用的图片地址"`
+}
+
+type configOutput struct {
+	Body httpx.Envelope[Config] `json:"body"`
+}
+
+type uploadOutput struct {
+	Body httpx.Envelope[UploadResult] `json:"body"`
 }
 
 // RegisterHuma 用 code-first 方式声明系统配置接口，生成 OpenAPI 3.1 文档。
@@ -49,13 +54,12 @@ func (h *Handler) RegisterHuma(api huma.API) {
 		Description: "登录页渲染所需的品牌信息与只读设备信息；公开接口。",
 		Tags:        []string{"SystemConfig"},
 		Security:    []map[string][]string{{}},
-	}, func(ctx context.Context, _ *getConfigInput) (*configEnvelope, error) {
+	}, func(ctx context.Context, _ *getConfigInput) (*configOutput, error) {
 		cfg, err := h.svc.Get(ctx)
 		if err != nil {
 			return nil, huma.Error500InternalServerError("get config failed")
 		}
-		out := envelope(cfg)
-		return &out, nil
+		return &configOutput{Body: httpx.Envelope[Config]{Code: httpx.CodeOK, Msg: "ok", Data: *cfg}}, nil
 	})
 
 	huma.Register(api, huma.Operation{
@@ -67,7 +71,7 @@ func (h *Handler) RegisterHuma(api huma.API) {
 		Tags:        []string{"SystemConfig"},
 		Security:    platformhttp.BearerSecurity(),
 		Metadata:    map[string]any{"permission": auth.PermConfigManage},
-	}, func(ctx context.Context, in *updateConfigInput) (*configEnvelope, error) {
+	}, func(ctx context.Context, in *updateConfigInput) (*configOutput, error) {
 		cfg, err := h.svc.Update(ctx, in.Body)
 		if err != nil {
 			var vErr *ValidationError
@@ -76,8 +80,7 @@ func (h *Handler) RegisterHuma(api huma.API) {
 			}
 			return nil, huma.Error500InternalServerError("update config failed")
 		}
-		out := envelope(cfg)
-		return &out, nil
+		return &configOutput{Body: httpx.Envelope[Config]{Code: httpx.CodeOK, Msg: "ok", Data: *cfg}}, nil
 	})
 
 	huma.Register(api, huma.Operation{
@@ -89,7 +92,7 @@ func (h *Handler) RegisterHuma(api huma.API) {
 		Tags:        []string{"SystemConfig"},
 		Security:    platformhttp.BearerSecurity(),
 		Metadata:    map[string]any{"permission": auth.PermConfigManage},
-	}, func(ctx context.Context, in *uploadInput) (*configEnvelope, error) {
+	}, func(ctx context.Context, in *uploadInput) (*uploadOutput, error) {
 		if h.uploads == nil {
 			return nil, huma.Error500InternalServerError("upload not configured")
 		}
@@ -111,7 +114,8 @@ func (h *Handler) RegisterHuma(api huma.API) {
 		if err != nil {
 			return nil, huma.Error500InternalServerError("save upload failed")
 		}
-		out := envelope(map[string]string{"url": url})
-		return &out, nil
+		return &uploadOutput{Body: httpx.Envelope[UploadResult]{
+			Code: httpx.CodeOK, Msg: "ok", Data: UploadResult{URL: url},
+		}}, nil
 	})
 }
