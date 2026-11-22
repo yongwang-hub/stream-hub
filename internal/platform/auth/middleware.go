@@ -23,7 +23,8 @@ func (a *Authenticator) Middleware(next http.Handler) http.Handler {
 			if err == ErrTokenExpired {
 				msg = "token expired"
 			}
-			slog.Warn("auth failed", "path", r.URL.Path, "reason", err.Error())
+			slog.Default().LogAttrs(r.Context(), slog.LevelWarn, "auth failed",
+				slog.String("path", r.URL.Path), slog.Any("err", err))
 			httpx.SystemError(w, http.StatusUnauthorized, httpx.CodeSystemUnauth, msg)
 			return
 		}
@@ -36,7 +37,7 @@ func (a *Authenticator) RequirePermission(permission string) func(http.Handler) 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if a.accounts == nil {
-				slog.Error("authorize requested but account store not configured")
+				slog.Default().LogAttrs(r.Context(), slog.LevelError, "authorize requested but account store not configured")
 				httpx.InternalError(w)
 				return
 			}
@@ -52,12 +53,14 @@ func (a *Authenticator) RequirePermission(permission string) func(http.Handler) 
 			}
 			info, err := a.accounts.Authorize(r.Context(), uid)
 			if err != nil {
-				slog.Error("authorize lookup failed", "user_id", uid, "err", err)
+				slog.Default().LogAttrs(r.Context(), slog.LevelError, "authorize lookup failed",
+					slog.Int("user_id", uid), slog.Any("err", err))
 				httpx.InternalError(w)
 				return
 			}
 			if !info.Enabled {
-				slog.Warn("request denied: account disabled", "path", r.URL.Path, "user_id", uid)
+				slog.Default().LogAttrs(r.Context(), slog.LevelWarn, "request denied: account disabled",
+					slog.String("path", r.URL.Path), slog.Int("user_id", uid))
 				httpx.SystemError(w, http.StatusForbidden, httpx.CodeSystemForbidden, "account disabled")
 				return
 			}
@@ -69,8 +72,9 @@ func (a *Authenticator) RequirePermission(permission string) func(http.Handler) 
 				return
 			}
 			if !info.Permissions[permission] {
-				slog.Warn("permission denied",
-					"path", r.URL.Path, "user_id", uid, "want_permission", permission)
+				slog.Default().LogAttrs(r.Context(), slog.LevelWarn, "permission denied",
+					slog.String("path", r.URL.Path), slog.Int("user_id", uid),
+					slog.String("want_permission", permission))
 				httpx.SystemError(w, http.StatusForbidden, httpx.CodeSystemForbidden,
 					"permission "+permission+" required")
 				return

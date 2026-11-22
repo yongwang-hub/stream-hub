@@ -115,7 +115,7 @@ func (s *Service) Stop() {
 func (s *Service) sampleAndPublish() {
 	snap, err := s.collector.Sample()
 	if err != nil {
-		slog.Warn("metrics sample failed", "err", err)
+		slog.Default().LogAttrs(context.Background(), slog.LevelWarn, "metrics sample failed", slog.Any("err", err))
 		return
 	}
 	s.mu.Lock()

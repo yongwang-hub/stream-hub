@@ -3,6 +3,7 @@
 package identity
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -35,7 +36,7 @@ func NewAdminHandler(repo *AdminRepo) *AdminHandler {
 func (h *AdminHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	users, err := h.repo.ListUsers(r.Context())
 	if err != nil {
-		h.writeError(w, err)
+		h.writeError(r.Context(), w, err)
 		return
 	}
 	httpx.OK(w, users)
@@ -48,7 +49,7 @@ func (h *AdminHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	u, err := h.repo.CreateUser(r.Context(), in)
 	if err != nil {
-		h.writeError(w, err)
+		h.writeError(r.Context(), w, err)
 		return
 	}
 	httpx.OK(w, u)
@@ -65,7 +66,7 @@ func (h *AdminHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	u, err := h.repo.UpdateUser(r.Context(), id, in)
 	if err != nil {
-		h.writeError(w, err)
+		h.writeError(r.Context(), w, err)
 		return
 	}
 	httpx.OK(w, u)
@@ -84,7 +85,7 @@ func (h *AdminHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if err := h.repo.DeleteUser(r.Context(), id); err != nil {
-		h.writeError(w, err)
+		h.writeError(r.Context(), w, err)
 		return
 	}
 	httpx.OK(w, map[string]int{"deleted": id})
@@ -95,7 +96,7 @@ func (h *AdminHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 func (h *AdminHandler) ListRoles(w http.ResponseWriter, r *http.Request) {
 	roles, err := h.repo.ListRoles(r.Context())
 	if err != nil {
-		h.writeError(w, err)
+		h.writeError(r.Context(), w, err)
 		return
 	}
 	httpx.OK(w, roles)
@@ -108,7 +109,7 @@ func (h *AdminHandler) CreateRole(w http.ResponseWriter, r *http.Request) {
 	}
 	role, err := h.repo.CreateRole(r.Context(), in)
 	if err != nil {
-		h.writeError(w, err)
+		h.writeError(r.Context(), w, err)
 		return
 	}
 	httpx.OK(w, role)
@@ -125,7 +126,7 @@ func (h *AdminHandler) UpdateRole(w http.ResponseWriter, r *http.Request) {
 	}
 	role, err := h.repo.UpdateRole(r.Context(), id, in)
 	if err != nil {
-		h.writeError(w, err)
+		h.writeError(r.Context(), w, err)
 		return
 	}
 	httpx.OK(w, role)
@@ -137,7 +138,7 @@ func (h *AdminHandler) DeleteRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.repo.DeleteRole(r.Context(), id); err != nil {
-		h.writeError(w, err)
+		h.writeError(r.Context(), w, err)
 		return
 	}
 	httpx.OK(w, map[string]int{"deleted": id})
@@ -164,7 +165,7 @@ func pathIDOrBadRequest(w http.ResponseWriter, r *http.Request) (int, bool) {
 }
 
 // writeError 把数据层哨兵错误翻成业务码；未知错误只记日志、对外统一 500 文案。
-func (h *AdminHandler) writeError(w http.ResponseWriter, err error) {
+func (h *AdminHandler) writeError(ctx context.Context, w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, ErrAdminInvalid):
 		httpx.BizError(w, CodeAdminInvalid, cleanErr(err))
@@ -173,7 +174,7 @@ func (h *AdminHandler) writeError(w http.ResponseWriter, err error) {
 	case errors.Is(err, ErrAdminDuplicate):
 		httpx.BizError(w, CodeAdminDuplicate, cleanErr(err))
 	default:
-		slog.Error("admin operation failed", "err", err)
+		slog.Default().LogAttrs(ctx, slog.LevelError, "admin operation failed", slog.Any("err", err))
 		httpx.InternalError(w)
 	}
 }

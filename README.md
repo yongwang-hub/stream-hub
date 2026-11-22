@@ -55,7 +55,7 @@ curl -N "http://127.0.0.1:8080/api/v1/stream/channels?token=<jwt>"   # SSE 实�
 |---|---|
 | 服务 | `ADDR`、`SHUTDOWN_TIMEOUT`、`READ_HEADER_TIMEOUT`、`READ_TIMEOUT`、`WRITE_TIMEOUT`、`IDLE_TIMEOUT`、`MAX_BODY_BYTES`、`MAX_CONCURRENT`、`DEBUG_ROUTES` |
 | 数据 | `DB_DRIVER`、`DB_DSN`、`DB_MAX_OPEN_CONNS`、`DB_MAX_IDLE_CONNS`、`DB_CONN_MAX_LIFETIME` |
-| 日志 | `LOG_LEVEL`、`LOG_FORMAT` |
+| 日志 | `LOG_LEVEL`、`LOG_FORMAT`（`text` 彩色人读 / `plain` 无色 / `json` 采集） |
 | 认证 | `AUTH_SECRET`、`AUTH_ENABLED`（`false/0/no/off` 强制关闭）、`AUTH_TOKEN_TTL` |
 | CORS | `CORS_ORIGINS`（逗号分隔）、`CORS_CREDENTIALS` |
 | 观测 / 部署 | `INTERNAL_ADDR`（留空关闭诊断端口）、`ENV`（`production` 时强制校验密钥与调试路由） |
@@ -127,6 +127,7 @@ stream-hub/
 │   ├── platform/                   平台层（无业务语义的基础设施）
 │   │   ├── auth/                   JWT + 权限码 + 登录/改密 + 认证中间件
 │   │   ├── http/                   路由注册器：Public / NeedAuth / Authorize / Stream
+│   │   ├── log/                    双 Handler 日志：tint 人读 / zerolog JSON + rid 自动注入
 │   │   └── storage/                上传落盘：随机命名 + 目录创建 + URL 拼装
 │   ├── identity/                   账号与角色：RBAC CRUD + 权限字典 seed
 │   ├── media/                      频道 CRUD + 状态机 + 事件广播（内存/三方言双实现）
@@ -160,12 +161,13 @@ stream-hub/
 - **账号 / RBAC**：`sys_users / sys_roles / sys_permissions / sys_user_roles / sys_role_permissions` 五表；用户与角色 CRUD（`/api/v1/users`、`/api/v1/roles`）；权限码单一清单在 `platform/auth`；`identity.Seed` 幂等写入 admin 角色、权限字典与 `admin/admin` 账号。
 - **系统配置**：`sys_config` 单行表存可写字段（产品名 / 背景 / 图标 / 警示语 / 水印 / 激活码）；只读元数据（版本 / 型号 / 序列号 / 机器码 / 授权天数 / 启动时间）启动采集一次；`GET` 公开供登录页渲染，写与上传需 `config:manage`；图片经 `platform/storage` 落盘 `data/uploads/`，按 `/uploads/` 提供。
 - **中间件链**（顺序有硬约束）：`RequestID → CORS → Logger → [Metrics] → [Limit] → Recover → MaxBody → Handler`。CORS 最外层保证预检与 429/500 都带头；`Limit` 对 SSE 长连接豁免，不占 slot。
+- **日志**：标准库 `slog` 门面 + 可插拔 Handler——开发 `tint` 彩色人读（时间只到毫秒、级别着色），生产 `zerolog` JSON（ungrouped 路径 0 allocs）；`platform/log` 的装饰器从 context 自动注入 16 字符 `rid`，业务代码零改动即可串联全链路；访问日志用路由模板而非原始路径，`/favicon.ico` 与探针降为 DEBUG、>1s 慢请求自动升 WARN。
 - **观测**：`stream_hub_http_request_duration_seconds{method,status,pattern}`（Go 1.22 的 `r.Pattern`，零额外匹配开销）、`stream_hub_http_requests_in_flight`、5 个 `stream_hub_db_*` 连接池 GaugeFunc、pprof 全套。SSE 可按 `pattern` 从 P99 中排除。
 - **鉴权**：JWT(HS256) + RBAC + bcrypt + 首登强制改密；**改密后旧 token 立即失效**（比对 `iat` 与 `password_changed_at`）；出厂账号 `admin/admin`（seed 幂等，仅首次创建，不覆盖已改密码）；`STREAM_HUB_ENV=production` 拒绝开发密钥/空密钥/调试路由；`/panic`、`/slow` 由 `debug_routes` 开关控制。
 - **数据**：零 ORM；`0001`（RBAC 五表）、`0002`（channels）、`0003`（sys_config）版本化迁移，DDL 逐条执行 + `Rebind`，三方言通用；`Store` 全方法收 `context.Context`；DB 错误不再被吞成空列表。
 - **响应**：`{code,msg,data}` 信封。业务码号段：`0` 成功、`10100` 强制改密、`102xx` 管理端（用户/角色）、`20001~20003` 频道、`30001~30002` 系统配置；系统码 `90001` 内部错误、`90002` 404、`90003` 405、`90004` 401、`90005` 403、`90006` 400、`90007` 413、`90008` 429、`90009` 503。号段表见 `httpx/response.go`，各模块在自身号段内定义常量。
-- **测试**：`config` / `db` / `httpx` / `httprouter` / `identity` / `media` / `metrics` / `middleware` / `platform/auth` / `platform/http` / `stream` / `systemconfig` 共 12 个包有测试，含 SSE 不被缓冲的集成回归与 typed-nil 鉴权回归。
-- **直接依赖 7 个**：`modernc.org/sqlite`、`go-sql-driver/mysql`、`pgx/v5`、`golang-jwt/jwt/v5`、`prometheus/client_golang`、`golang.org/x/crypto`、`yaml.v3`。
+- **测试**：`config` / `db` / `httpx` / `httprouter` / `identity` / `media` / `metrics` / `middleware` / `platform/auth` / `platform/http` / `platform/log` / `stream` / `systemconfig` 共 13 个包有测试，含 SSE 不被缓冲的集成回归与 typed-nil 鉴权回归。
+- **直接依赖 11 个**：`modernc.org/sqlite`、`go-sql-driver/mysql`、`pgx/v5`、`golang-jwt/jwt/v5`、`prometheus/client_golang`、`golang.org/x/crypto`、`yaml.v3`、`gopsutil/v4`（指标采集）、`tint`、`zerolog`、`slog-zerolog/v2`（日志）。
 
 ---
 
@@ -186,7 +188,7 @@ stream-hub/
 - [x] `internal/systemconfig/`：系统配置读写 + 图片上传 + 迁移 `0003`
 - [x] 长连接语义：Limit 豁免、Metrics 按 `pattern` 打标签、`Shutdown` 主动 drain
 - [x] 鉴权加固：出厂 `admin/admin` + 首登强制改密、生产启动校验、旧 token 失效、调试路由开关
-- [x] 工程质量：12 个包单测 + SSE 集成回归、Makefile / CI / 独立迁移 CLI
+- [x] 工程质量：13 个包单测 + SSE 集成回归、Makefile / CI / 独立迁移 CLI
 
 ### 阶段 2 · 前端骨架（已完成，可继续完善）
 
@@ -249,7 +251,7 @@ stream-hub/
 
 ## 冒烟记录（历史实测）
 
-- `gofmt -l ./cmd ./internal` 无输出；`go build ./...`、`go vet ./...`、`go test ./... -count=1` 全绿（12 个包有测试）。
+- `gofmt -l ./cmd ./internal` 无输出；`go build ./...`、`go vet ./...`、`go test ./... -count=1` 全绿（13 个包有测试）。
 - 端到端：`/healthz` `/readyz` 正常；CORS 预检 204 + 正确 Allow-Origin；`login → 10100 → 改密`；频道 CRUD 与 `status` 流转正常。
 - SSE：连接立即收到 `retry: 3000`，随后实时收到 `channel.created` 与 `probe` 事件（**证明未被 JSONErrors 缓冲**）；无 token 订阅返回 401；关闭认证时无 token 也能订阅。
 - `:9090/metrics` 出现 `stream_hub_http_request_duration_seconds_count{method="GET",pattern="GET /api/v1/stream/{channel}",status="200"}` 等按路由打标的序列。

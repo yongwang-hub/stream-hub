@@ -26,6 +26,7 @@ import (
 	"stream-hub/internal/middleware"
 	"stream-hub/internal/obs"
 	"stream-hub/internal/platform/auth"
+	platformlog "stream-hub/internal/platform/log"
 	"stream-hub/internal/platform/storage"
 	"stream-hub/internal/stream"
 	"stream-hub/internal/systemconfig"
@@ -67,7 +68,7 @@ func main() {
 	flag.Parse()
 
 	if err := run(*configPath); err != nil {
-		slog.Error("startup failed", "service", serviceName, "error", err)
+		slog.Error("startup failed", "service", serviceName, "err", err)
 		os.Exit(1)
 	}
 }
@@ -176,7 +177,10 @@ func buildHandler(cfg config.Config, d *dataLayer, m *modules) http.Handler {
 	mws := []middleware.Middleware{
 		middleware.RequestID,
 		middleware.CORS(cfg.CORS.AllowOrigins, cfg.CORS.AllowCredentials),
-		middleware.Logger,
+		middleware.LoggerWith(middleware.LoggerOptions{
+			QuietPaths:    []string{"/favicon.ico", "/healthz", "/ping", "/readyz"},
+			SlowThreshold: time.Second,
+		}),
 	}
 	// 诊断开启时才织入 Metrics 中间件。
 	if cfg.Observability.InternalAddr != "" {
@@ -277,7 +281,7 @@ func serve(cfg config.Config, d *dataLayer, m *modules) error {
 		go func() {
 			slog.Info("internal diagnostics starting", "service", serviceName, "addr", internalSrv.Addr, "endpoints", "/metrics /debug/pprof/")
 			if err := internalSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-				slog.Error("internal server error", "error", err)
+				slog.Error("internal server error", "err", err)
 			}
 		}()
 	}
@@ -293,7 +297,7 @@ func serve(cfg config.Config, d *dataLayer, m *modules) error {
 	case err := <-serveErr:
 		fatalErr = err
 		if err != nil {
-			slog.Error("server error", "service", serviceName, "error", err)
+			slog.Error("server error", "service", serviceName, "err", err)
 		}
 	}
 
@@ -311,7 +315,7 @@ func serve(cfg config.Config, d *dataLayer, m *modules) error {
 		internalCtx, internalCancel := context.WithTimeout(context.Background(), cfg.Server.ShutdownTimeout.Std())
 		defer internalCancel()
 		if err := internalSrv.Shutdown(internalCtx); err != nil {
-			slog.Warn("internal server shutdown incomplete", "error", err)
+			slog.Warn("internal server shutdown incomplete", "err", err)
 		}
 	}
 	if fatalErr != nil {
@@ -363,31 +367,14 @@ func printBanner(businessAddr, internalAddr, version string, authEnabled bool) {
 	fmt.Println(strings.Join(lines, "\n"))
 }
 
-// setupLogger 按配置装配 slog 默认 logger（全局生效）。
-// text 给人看，json 给日志采集系统看；两种只是 Handler 不同，业务代码无感。
+// setupLogger 按配置装配全局 slog：开发彩色人读 / 生产 JSON，
+// 所有日志自动带 request_id（提取函数由 middleware 提供，避免平台层反向依赖）。
 func setupLogger(l config.Log) {
-	opts := &slog.HandlerOptions{Level: parseLevel(l.Level)}
-	var h slog.Handler
-	if strings.EqualFold(l.Format, "json") {
-		h = slog.NewJSONHandler(os.Stdout, opts)
-	} else {
-		h = slog.NewTextHandler(os.Stdout, opts)
-	}
-	slog.SetDefault(slog.New(h))
-}
-
-// parseLevel 把配置文本转成 slog.Level；认不出来的一律当 info（安全默认）。
-func parseLevel(s string) slog.Level {
-	switch strings.ToLower(s) {
-	case "debug":
-		return slog.LevelDebug
-	case "warn":
-		return slog.LevelWarn
-	case "error":
-		return slog.LevelError
-	default:
-		return slog.LevelInfo
-	}
+	slog.SetDefault(platformlog.New(platformlog.Options{
+		Format:    l.Format,
+		Level:     platformlog.ParseLevel(l.Level),
+		RequestID: middleware.GetRequestID,
+	}))
 }
 
 // openDB 根据配置打开数据库，返回(底层*sql.DB, 方言, 关闭函数, 错误)。

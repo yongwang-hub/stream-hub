@@ -59,22 +59,22 @@ func nonNil(a Authenticator) Authenticator {
 
 // Public 注册公开接口（无需登录），如登录入口、登录页要读的展示配置、健康检查。
 func (r *Router) Public(pattern string, h http.HandlerFunc) {
-	r.jsonMux.Handle(pattern, h)
+	r.jsonMux.Handle(pattern, withPattern(pattern, h))
 }
 
 // Handle 注册一个已有的 http.Handler（静态资源、文件服务等）。
 func (r *Router) Handle(pattern string, h http.Handler) {
-	r.jsonMux.Handle(pattern, h)
+	r.jsonMux.Handle(pattern, withPattern(pattern, h))
 }
 
 // NeedAuth 注册只需登录态的接口：验身份即可，不看权限、也不管强制改密。
 func (r *Router) NeedAuth(pattern string, h http.HandlerFunc) {
-	r.jsonMux.Handle(pattern, r.guard(h, ""))
+	r.jsonMux.Handle(pattern, withPattern(pattern, r.guard(h, "")))
 }
 
 // Authorize 注册需要权限的接口：认证(401) → 强制改密 → 权限判定(403) 三件套。
 func (r *Router) Authorize(pattern, permission string, h http.HandlerFunc) {
-	r.jsonMux.Handle(pattern, r.guard(h, permission))
+	r.jsonMux.Handle(pattern, withPattern(pattern, r.guard(h, permission)))
 }
 
 // Stream 注册 SSE 流接口：支持 ?token= 查询参数（EventSource 不能带自定义头），
@@ -84,7 +84,7 @@ func (r *Router) Stream(pattern string, h http.HandlerFunc) {
 	if r.authn != nil {
 		sh = r.authn.MiddlewareQueryToken(sh)
 	}
-	r.streamMux.Handle(pattern, sh)
+	r.streamMux.Handle(pattern, withPattern(pattern, sh))
 }
 
 // guard 按权限级别包裹 handler。permission 为空表示只挂认证关卡。

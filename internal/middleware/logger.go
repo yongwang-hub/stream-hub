@@ -4,42 +4,91 @@ package middleware
 import (
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
+
+	platformhttp "stream-hub/internal/platform/http"
 )
 
-// Logger 中间件：每个请求结束后，打一条结构化访问日志。
+// LoggerOptions 控制访问日志的降噪与慢请求告警。
+type LoggerOptions struct {
+	// QuietPaths 是精确匹配的低价值路径（探针 / favicon），降到 DEBUG，默认不刷屏。
+	// 5xx 不受影响：真故障必须看得见。
+	QuietPaths []string
+	// SlowThreshold >0 时，耗时超阈值的请求自动升一级（INFO→WARN、WARN→ERROR）。
+	SlowThreshold time.Duration
+}
+
+// Logger 用默认选项；需要降噪/慢请求告警时用 LoggerWith。
+func Logger(next http.Handler) http.Handler {
+	return LoggerWith(LoggerOptions{})(next)
+}
+
+// LoggerWith 每个请求结束后打一条结构化访问日志。
 //
 // 要记 status 和响应字节数，就得「偷看」下游写了什么。这里用的是
 // write-through（直传）包装：每个 Write 立刻原样转给真 ResponseWriter，
 // 只在旁边顺手记账——不缓冲任何字节，流式响应不受影响。
 // （对比：httpx.JSONErrors 那种全量截住改写，会破坏 SSE/流式，
 // 详见 docs/响应缓冲与流式问题.md。两种拦截器，用途不同。）
-func Logger(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
+func LoggerWith(o LoggerOptions) func(http.Handler) http.Handler {
+	quiet := make(map[string]struct{}, len(o.QuietPaths))
+	for _, p := range o.QuietPaths {
+		quiet[p] = struct{}{}
+	}
 
-		rec := &respRecorder{ResponseWriter: w, status: 0}
-		next.ServeHTTP(rec, r) // 请求照常往下走，rec 只在旁边记账
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			start := time.Now()
 
-		// 能走到这里说明没 panic（panic 会被外层 Recover 接住）。
-		// 按状态码自动定级：5xx=Error，4xx=Warn，其余=Info。
-		level := slog.LevelInfo
-		switch {
-		case rec.status >= 500:
-			level = slog.LevelError
-		case rec.status >= 400:
-			level = slog.LevelWarn
-		}
+			// 路由模板容器放 context：内层注册器填值，外层这里读取。
+			// 指针共享，auth 中间件用 WithContext 克隆请求也不会丢。
+			ctx, route := platformhttp.WithRoutePattern(r.Context())
+			r = r.WithContext(ctx)
 
-		slog.Default().LogAttrs(r.Context(), level, "http request",
-			slog.String("request_id", GetRequestID(r.Context())), // 串链路的钥匙
-			slog.String("method", r.Method),
-			slog.String("path", r.URL.Path),
-			slog.Int("status", rec.status),
-			slog.Int("bytes", rec.bytes),
-			slog.Duration("duration", time.Since(start)),
-		)
-	})
+			rec := &respRecorder{ResponseWriter: w}
+			next.ServeHTTP(rec, r) // 请求照常往下走，rec 只在旁边记账
+
+			elapsed := time.Since(start)
+			path := r.URL.Path
+			if route.Value != "" {
+				path = route.Value // 用模板而非原始路径，避免 /users/1、/users/2 刷屏
+				if i := strings.IndexByte(path, ' '); i >= 0 {
+					path = path[i+1:] // 去掉 "GET " 方法前缀，method 字段已有
+				}
+			}
+
+			slog.Default().LogAttrs(r.Context(),
+				accessLevel(rec.status, elapsed, path, quiet, o.SlowThreshold),
+				"http",
+				slog.Int("status", rec.status),
+				slog.String("method", r.Method),
+				slog.String("route", path),
+				slog.Int("bytes", rec.bytes),
+				slog.Duration("duration", elapsed),
+				// request_id 由 platform/log 的 handler 从 context 自动注入，不在这里重复打。
+			)
+		})
+	}
+}
+
+// accessLevel 决定访问日志级别：先看状态码，再应用降噪与慢请求规则。
+func accessLevel(status int, elapsed time.Duration, path string, quiet map[string]struct{}, slow time.Duration) slog.Level {
+	level := slog.LevelInfo
+	switch {
+	case status >= 500:
+		level = slog.LevelError
+	case status >= 400:
+		level = slog.LevelWarn
+	}
+
+	if _, ok := quiet[path]; ok && status < 500 {
+		level = slog.LevelDebug // 探针/favicon 的 4xx 是常态，不是问题
+	}
+	if slow > 0 && elapsed >= slow && level < slog.LevelWarn {
+		level = slog.LevelWarn // 慢请求升级，但仍保留 5xx 的 Error 级别
+	}
+	return level
 }
 
 // respRecorder 是 write-through 版 ResponseWriter 包装：只记录，不拦截。

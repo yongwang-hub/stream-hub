@@ -24,7 +24,7 @@ func (a *Authenticator) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if a.accounts == nil {
-		slog.Error("login requested but account store not configured")
+		slog.Default().LogAttrs(r.Context(), slog.LevelError, "login requested but account store not configured")
 		httpx.InternalError(w)
 		return
 	}
@@ -33,22 +33,25 @@ func (a *Authenticator) Login(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case errors.Is(err, ErrAccountNotFound):
 		_ = CheckPassword(dummyHash, req.Password) // 等长假比对
-		slog.Warn("login failed", "reason", "unknown user", "username", req.Username)
+		slog.Default().LogAttrs(r.Context(), slog.LevelWarn, "login failed",
+			slog.String("reason", "unknown_user"), slog.String("username", req.Username))
 		httpx.SystemError(w, http.StatusUnauthorized, httpx.CodeSystemUnauth, "invalid credentials")
 		return
 	case err != nil:
-		slog.Error("login lookup error", "err", err)
+		slog.Default().LogAttrs(r.Context(), slog.LevelError, "login lookup error", slog.Any("err", err))
 		httpx.InternalError(w)
 		return
 	}
 
 	if CheckPassword(acct.PasswordHash, req.Password) != nil {
-		slog.Warn("login failed", "reason", "bad password", "username", req.Username)
+		slog.Default().LogAttrs(r.Context(), slog.LevelWarn, "login failed",
+			slog.String("reason", "bad_password"), slog.String("username", req.Username))
 		httpx.SystemError(w, http.StatusUnauthorized, httpx.CodeSystemUnauth, "invalid credentials")
 		return
 	}
 	if !acct.Enabled {
-		slog.Warn("login blocked: account disabled", "username", req.Username)
+		slog.Default().LogAttrs(r.Context(), slog.LevelWarn, "login blocked: account disabled",
+			slog.String("username", req.Username))
 		httpx.SystemError(w, http.StatusForbidden, httpx.CodeSystemForbidden, "account disabled")
 		return
 	}
@@ -59,7 +62,8 @@ func (a *Authenticator) Login(w http.ResponseWriter, r *http.Request) {
 		httpx.InternalError(w)
 		return
 	}
-	slog.Info("login success", "user_id", acct.ID, "must_change_password", mustChange)
+	slog.Default().LogAttrs(r.Context(), slog.LevelInfo, "login success",
+		slog.Int("user_id", acct.ID), slog.Bool("must_change_password", mustChange))
 	httpx.OK(w, map[string]any{
 		"token":       token,
 		"expires_in":  int(a.TokenTTL().Seconds()),
@@ -102,7 +106,8 @@ func (a *Authenticator) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		httpx.SystemError(w, http.StatusUnauthorized, httpx.CodeSystemUnauth, "account not found")
 		return
 	case err != nil:
-		slog.Error("change password failed", "user_id", uid, "err", err)
+		slog.Default().LogAttrs(r.Context(), slog.LevelError, "change password failed",
+			slog.Int("user_id", uid), slog.Any("err", err))
 		httpx.InternalError(w)
 		return
 	}
@@ -112,7 +117,7 @@ func (a *Authenticator) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		httpx.InternalError(w)
 		return
 	}
-	slog.Info("password changed", "user_id", uid)
+	slog.Default().LogAttrs(r.Context(), slog.LevelInfo, "password changed", slog.Int("user_id", uid))
 	httpx.OK(w, map[string]any{
 		"token":      token,
 		"expires_in": int(a.TokenTTL().Seconds()),
