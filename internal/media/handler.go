@@ -23,11 +23,13 @@ type Handler struct {
 
 func NewHandler(svc *Service) *Handler { return &Handler{svc: svc} }
 
+// channelRequest 同时用于旧 handler 与 Huma DTO。
+// omitempty 让 Huma 把字段视为可选（PUT 支持局部更新），不影响 JSON 解码行为。
 type channelRequest struct {
-	Slug      string `json:"slug"`
-	Name      string `json:"name"`
-	SourceURL string `json:"source_url"`
-	Status    string `json:"status"`
+	Slug      string `json:"slug,omitempty"`
+	Name      string `json:"name,omitempty"`
+	SourceURL string `json:"source_url,omitempty"`
+	Status    string `json:"status,omitempty"`
 }
 
 // List 处理 GET /api/v1/channels。

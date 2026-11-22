@@ -35,12 +35,15 @@ type AdminUser struct {
 //   - Password：创建必填；更新留空表示「不改密码」。
 //   - Enabled：指针，nil 表示不更新。
 //   - RoleIDs：nil 表示不更新角色；空数组表示清空所有角色。
+//
+// json omitempty 让 Huma 把字段视为可选（创建/更新共用同一 DTO），
+// 不影响 encoding/json 解码，也不改变 repo 的 nil=不更新 / 空数组=清空语义。
 type AdminUserInput struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-	Email    string `json:"email"`
-	Enabled  *bool  `json:"enabled"`
-	RoleIDs  []int  `json:"role_ids"`
+	Username string `json:"username,omitempty"`
+	Password string `json:"password,omitempty"`
+	Email    string `json:"email,omitempty"`
+	Enabled  *bool  `json:"enabled,omitempty"`
+	RoleIDs  []int  `json:"role_ids,omitempty"`
 }
 
 // AdminRole 是角色视图（sys_roles 表本身没有 created_at 列，故不伪造时间字段）。
@@ -53,9 +56,9 @@ type AdminRole struct {
 
 // AdminRoleInput 是角色创建/更新的请求体；Permissions 为空数组表示清空权限。
 type AdminRoleInput struct {
-	Name        string   `json:"name"`
-	Description string   `json:"description"`
-	Permissions []string `json:"permissions"`
+	Name        string   `json:"name,omitempty"`
+	Description string   `json:"description,omitempty"`
+	Permissions []string `json:"permissions,omitempty"`
 }
 
 // AdminRepo 是管理端 CRUD 的关系库实现。

@@ -26,8 +26,10 @@ func HumaAuth(authn HumaAuthenticator, permission string) func(huma.Context, fun
 			return
 		}
 		r, w := humago.Unwrap(ctx)
-		bridge := http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
-			next(ctx)
+		bridge := http.HandlerFunc(func(_ http.ResponseWriter, nextR *http.Request) {
+			// 关键：把鉴权 middleware 注入了 claims 的 context 传回 Huma，
+			// 否则 handler 里的 FromContext 拿不到身份，改密等接口会失败。
+			next(huma.WithContext(ctx, nextR.Context()))
 		})
 		h := authn.Middleware(bridge)
 		if permission != "" {

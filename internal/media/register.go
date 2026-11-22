@@ -1,15 +1,7 @@
 package media
 
-import (
-	"stream-hub/internal/platform/auth"
-	platformhttp "stream-hub/internal/platform/http"
-)
+import platformhttp "stream-hub/internal/platform/http"
 
-// Register 声明频道路由：读只需登录态，写需要 channel:manage。
-func (h *Handler) Register(r *platformhttp.Router) {
-	r.NeedAuth("GET /api/v1/channels", h.List)
-	r.NeedAuth("GET /api/v1/channels/{id}", h.Get)
-	r.Authorize("POST /api/v1/channels", auth.PermChannelManage, h.Create)
-	r.Authorize("PUT /api/v1/channels/{id}", auth.PermChannelManage, h.Update)
-	r.Authorize("DELETE /api/v1/channels/{id}", auth.PermChannelManage, h.Delete)
-}
+// Register 保留空实现：频道接口已迁到 Huma（见 huma.go 的 RegisterHuma），
+// 由 platform/http 的路由组装器在创建 Huma API 时调用。
+func (h *Handler) Register(_ *platformhttp.Router) {}

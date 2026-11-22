@@ -61,6 +61,21 @@ func New(d Deps) http.Handler {
 	if d.SystemConfig != nil {
 		d.SystemConfig.RegisterHuma(humaAPI)
 	}
+	if d.Authn != nil {
+		d.Authn.RegisterHuma(humaAPI)
+	}
+	if d.Admin != nil {
+		d.Admin.RegisterHuma(humaAPI)
+	}
+	if d.Media != nil {
+		d.Media.RegisterHuma(humaAPI)
+	}
+	if d.Metrics != nil {
+		d.Metrics.RegisterHuma(humaAPI)
+	}
+	if d.Stream != nil {
+		d.Stream.RegisterHuma(humaAPI)
+	}
 
 	// 各业务模块自注册自己的路由与鉴权级别。
 	if d.Authn != nil {

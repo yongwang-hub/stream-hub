@@ -2,8 +2,6 @@ package auth
 
 import platformhttp "stream-hub/internal/platform/http"
 
-// Register 声明认证相关路由：登录公开、改密需登录态。
-func (a *Authenticator) Register(r *platformhttp.Router) {
-	r.Public("POST /login", a.Login)
-	r.NeedAuth("PUT /me/password", a.ChangePassword)
-}
+// Register 保留空实现：认证接口已迁到 Huma（见 huma.go 的 RegisterHuma），
+// 由 platform/http 的路由组装器在创建 Huma API 时调用。
+func (a *Authenticator) Register(_ *platformhttp.Router) {}

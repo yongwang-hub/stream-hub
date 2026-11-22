@@ -1,12 +1,9 @@
 package stream
 
-import (
-	"stream-hub/internal/platform/auth"
-	platformhttp "stream-hub/internal/platform/http"
-)
+import platformhttp "stream-hub/internal/platform/http"
 
-// Register 声明流相关路由：事件注入是 JSON（走 json mux），订阅是 SSE（走流式 mux）。
+// Register 只声明 SSE 订阅：它必须走流式 mux，不能被 Huma/JSONErrors 缓冲。
+// 事件注入是普通 JSON 接口，已迁到 Huma（见 huma.go 的 RegisterHuma）。
 func (h *Handler) Register(r *platformhttp.Router) {
-	r.Authorize("POST /api/v1/stream/{channel}/events", auth.PermStreamPublish, h.Publish)
 	r.Stream("GET /api/v1/stream/{channel}", h.Subscribe)
 }

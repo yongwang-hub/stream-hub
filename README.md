@@ -133,7 +133,7 @@ stream-hub/
 │   │   └── storage/                上传落盘：随机命名 + 目录创建 + URL 拼装
 │   ├── identity/                   账号与角色：RBAC CRUD + 权限字典 seed
 │   ├── media/                      频道 CRUD + 状态机 + 事件广播（内存/三方言双实现）
-│   ├── systemconfig/               系统配置：可写字段落库 + 只读设备信息 + 图片上传（Huma code-first 试点）
+│   ├── systemconfig/               系统配置：可写字段落库 + 只读设备信息 + 图片上传（Huma code-first）
 │   ├── stream/                     SSE Hub：订阅/广播/心跳/断线清理/Last-Event-ID
 │   ├── metrics/                    运行时指标快照（内存采样 + SSE 增量）
 │   ├── config/                     Config + 三层加载 + Duration + Validate
@@ -162,14 +162,14 @@ stream-hub/
 - **频道模块**：`channels` 表（迁移 `0002`）、CRUD + 状态机（`idle/live/error/stopped`）、校验、slug 唯一；增删改向 `channels` 全局频道与 `{slug}` 单频道广播 `channel.created/updated/deleted`。
 - **账号 / RBAC**：`sys_users / sys_roles / sys_permissions / sys_user_roles / sys_role_permissions` 五表；用户与角色 CRUD（`/api/v1/users`、`/api/v1/roles`）；权限码单一清单在 `platform/auth`；`identity.Seed` 幂等写入 admin 角色、权限字典与 `admin/admin` 账号。
 - **系统配置**：`sys_config` 单行表存可写字段（产品名 / 背景 / 图标 / 警示语 / 水印 / 激活码）；只读元数据（版本 / 型号 / 序列号 / 机器码 / 授权天数 / 启动时间）启动采集一次；`GET` 公开供登录页渲染，写与上传需 `config:manage`；图片经 `platform/storage` 落盘 `data/uploads/`，按 `/uploads/` 提供。接口用 **Huma code-first** 声明：Go 类型自动生成 OpenAPI 3.1 + 运行期校验，响应仍沿用 `{code,msg,data}` 信封。
-- **API 文档**：`/api/v1/openapi.json` 与 `/api/v1/openapi.yaml` 由 Huma 从代码实时生成；`/api/v1/docs` 是 Scalar UI 交互文档。Huma 与原路由共用同一 mux 和中间件链，鉴权通过 `platform/http.HumaAuth` 桥接复用现有 JWT/RBAC 逻辑。
+- **API 文档**：`/api/v1/openapi.json` 与 `/api/v1/openapi.yaml` 由 Huma 从代码实时生成；`/api/v1/docs` 是 Scalar UI 交互文档。已覆盖全部 JSON 接口（认证 / 用户 / 角色 / 频道 / 系统配置 / 指标 / 事件注入）；SSE 订阅因走独立流式 mux 不在 spec 中。Huma 与原路由共用同一 mux 和中间件链，鉴权通过 `platform/http.HumaAuth` 桥接复用现有 JWT/RBAC 逻辑（含 claims 透传修正）。
 - **中间件链**（顺序有硬约束）：`RequestID → CORS → Logger → [Metrics] → [Limit] → Recover → MaxBody → Handler`。CORS 最外层保证预检与 429/500 都带头；`Limit` 对 SSE 长连接豁免，不占 slot。
 - **日志**：标准库 `slog` 门面 + 可插拔 Handler——开发 `tint` 彩色人读（时间只到毫秒、级别着色），生产 `zerolog` JSON（ungrouped 路径 0 allocs）；`platform/log` 的装饰器从 context 自动注入 16 字符 `rid`，业务代码零改动即可串联全链路；访问日志用路由模板而非原始路径，`/favicon.ico` 与探针降为 DEBUG、>1s 慢请求自动升 WARN。
 - **观测**：`stream_hub_http_request_duration_seconds{method,status,pattern}`（Go 1.22 的 `r.Pattern`，零额外匹配开销）、`stream_hub_http_requests_in_flight`、5 个 `stream_hub_db_*` 连接池 GaugeFunc、pprof 全套。SSE 可按 `pattern` 从 P99 中排除。
 - **鉴权**：JWT(HS256) + RBAC + bcrypt + 首登强制改密；**改密后旧 token 立即失效**（比对 `iat` 与 `password_changed_at`）；出厂账号 `admin/admin`（seed 幂等，仅首次创建，不覆盖已改密码）；`STREAM_HUB_ENV=production` 拒绝开发密钥/空密钥/调试路由；`/panic`、`/slow` 由 `debug_routes` 开关控制。
 - **数据**：零 ORM；`0001`（RBAC 五表）、`0002`（channels）、`0003`（sys_config）版本化迁移，DDL 逐条执行 + `Rebind`，三方言通用；`Store` 全方法收 `context.Context`；DB 错误不再被吞成空列表。
 - **响应**：普通接口用 `{code,msg,data}` 信封。业务码号段：`0` 成功、`10100` 强制改密、`102xx` 管理端（用户/角色）、`20001~20003` 频道、`30001~30002` 系统配置；系统码 `90001` 内部错误、`90002` 404、`90003` 405、`90004` 401、`90005` 403、`90006` 400、`90007` 413、`90008` 429、`90009` 503。号段表见 `httpx/response.go`，各模块在自身号段内定义常量。
-- **响应（Huma 接口）**：systemconfig 的写接口已迁到 Huma——成功仍是 `{code,msg,data}` 信封；**校验/业务失败走 RFC9457 `application/problem+json`**（真实 HTTP 状态码 400/422/500，`detail` 字段是可读原因）。前端 `api.ts` 的 `request()` 与 `uploadImage()` 同时识别两种错误格式，统一抛带 code/message 的 `ApiError`。其余模块迁移时按此约定。
+- **响应（Huma 接口）**：除 SSE 订阅外的全部 JSON 接口已迁到 Huma——成功仍是 `{code,msg,data}` 信封；**校验/业务失败走 RFC9457 `application/problem+json`**（真实 HTTP 状态码 400/401/403/404/409/422/500，`detail` 字段是可读原因）。前端 `api.ts` 的 `request()` 与 `uploadImage()` 同时识别两种错误格式，统一抛带 code/message 的 `ApiError`。SSE 订阅（`GET /api/v1/stream/{channel}`）必须走独立流式 mux，不能被 Huma/JSONErrors 缓冲，故保留原生 handler。
 - **测试**：`config` / `db` / `httpx` / `httprouter` / `identity` / `media` / `metrics` / `middleware` / `platform/auth` / `platform/http` / `platform/log` / `stream` / `systemconfig` 共 13 个包有测试，含 SSE 不被缓冲的集成回归与 typed-nil 鉴权回归。
 - **直接依赖 12 个**：`modernc.org/sqlite`、`go-sql-driver/mysql`、`pgx/v5`、`golang-jwt/jwt/v5`、`prometheus/client_golang`、`golang.org/x/crypto`、`yaml.v3`、`gopsutil/v4`（指标采集）、`tint`、`zerolog`、`slog-zerolog/v2`（日志）、`huma/v2`（OpenAPI/接口层）。
 
