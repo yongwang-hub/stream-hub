@@ -357,6 +357,8 @@ func printBanner(businessAddr, internalAddr, version string, authEnabled bool) {
 		fmt.Sprintf("  version   : %s", version),
 		fmt.Sprintf("  web UI    : %s/", base),
 		fmt.Sprintf("  health    : %s/healthz", base),
+		fmt.Sprintf("  API docs  : %s/api/v1/docs", base),
+		fmt.Sprintf("  OpenAPI   : %s/api/v1/openapi.json", base),
 		frontendLine,
 		fmt.Sprintf("  auth      : %s", authLine),
 	}

@@ -41,6 +41,8 @@ go test ./... -count=1
 ```powershell
 curl http://127.0.0.1:8080/healthz          # liveness
 curl http://127.0.0.1:8080/readyz           # readiness（DB Ping + 池水位）
+curl http://127.0.0.1:8080/api/v1/docs      # Scalar UI 交互文档（横幅也会打印地址）
+curl http://127.0.0.1:8080/api/v1/openapi.json  # OpenAPI 3.1（Huma 从代码实时生成）
 curl http://127.0.0.1:9090/metrics          # 诊断端口：Prometheus 指标
 curl -N "http://127.0.0.1:8080/api/v1/stream/channels?token=<jwt>"   # SSE 实时事件流
 ```
@@ -166,7 +168,8 @@ stream-hub/
 - **观测**：`stream_hub_http_request_duration_seconds{method,status,pattern}`（Go 1.22 的 `r.Pattern`，零额外匹配开销）、`stream_hub_http_requests_in_flight`、5 个 `stream_hub_db_*` 连接池 GaugeFunc、pprof 全套。SSE 可按 `pattern` 从 P99 中排除。
 - **鉴权**：JWT(HS256) + RBAC + bcrypt + 首登强制改密；**改密后旧 token 立即失效**（比对 `iat` 与 `password_changed_at`）；出厂账号 `admin/admin`（seed 幂等，仅首次创建，不覆盖已改密码）；`STREAM_HUB_ENV=production` 拒绝开发密钥/空密钥/调试路由；`/panic`、`/slow` 由 `debug_routes` 开关控制。
 - **数据**：零 ORM；`0001`（RBAC 五表）、`0002`（channels）、`0003`（sys_config）版本化迁移，DDL 逐条执行 + `Rebind`，三方言通用；`Store` 全方法收 `context.Context`；DB 错误不再被吞成空列表。
-- **响应**：`{code,msg,data}` 信封。业务码号段：`0` 成功、`10100` 强制改密、`102xx` 管理端（用户/角色）、`20001~20003` 频道、`30001~30002` 系统配置；系统码 `90001` 内部错误、`90002` 404、`90003` 405、`90004` 401、`90005` 403、`90006` 400、`90007` 413、`90008` 429、`90009` 503。号段表见 `httpx/response.go`，各模块在自身号段内定义常量。
+- **响应**：普通接口用 `{code,msg,data}` 信封。业务码号段：`0` 成功、`10100` 强制改密、`102xx` 管理端（用户/角色）、`20001~20003` 频道、`30001~30002` 系统配置；系统码 `90001` 内部错误、`90002` 404、`90003` 405、`90004` 401、`90005` 403、`90006` 400、`90007` 413、`90008` 429、`90009` 503。号段表见 `httpx/response.go`，各模块在自身号段内定义常量。
+- **响应（Huma 接口）**：systemconfig 的写接口已迁到 Huma——成功仍是 `{code,msg,data}` 信封；**校验/业务失败走 RFC9457 `application/problem+json`**（真实 HTTP 状态码 400/422/500，`detail` 字段是可读原因）。前端 `api.ts` 的 `request()` 与 `uploadImage()` 同时识别两种错误格式，统一抛带 code/message 的 `ApiError`。其余模块迁移时按此约定。
 - **测试**：`config` / `db` / `httpx` / `httprouter` / `identity` / `media` / `metrics` / `middleware` / `platform/auth` / `platform/http` / `platform/log` / `stream` / `systemconfig` 共 13 个包有测试，含 SSE 不被缓冲的集成回归与 typed-nil 鉴权回归。
 - **直接依赖 12 个**：`modernc.org/sqlite`、`go-sql-driver/mysql`、`pgx/v5`、`golang-jwt/jwt/v5`、`prometheus/client_golang`、`golang.org/x/crypto`、`yaml.v3`、`gopsutil/v4`（指标采集）、`tint`、`zerolog`、`slog-zerolog/v2`（日志）、`huma/v2`（OpenAPI/接口层）。
 

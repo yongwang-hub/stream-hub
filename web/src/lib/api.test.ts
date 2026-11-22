@@ -33,6 +33,28 @@ describe('request', () => {
     });
   });
 
+  it('Huma 的 problem+json 错误提取 detail 文案', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            type: 'about:blank',
+            title: 'Unprocessable Entity',
+            status: 422,
+            detail: '产品名不能为空',
+          }),
+          { status: 422, headers: { 'Content-Type': 'application/problem+json' } },
+        ),
+      ),
+    );
+    await expect(request('/x')).rejects.toMatchObject({
+      name: 'ApiError',
+      code: 422,
+      message: '产品名不能为空',
+    });
+  });
+
   it('网络异常转成 ApiError(-1)', async () => {
     vi.stubGlobal(
       'fetch',

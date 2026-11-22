@@ -7,6 +7,24 @@ export interface Envelope<T = unknown> {
   data?: T;
 }
 
+// Huma 接口的错误用 RFC9457 problem+json（application/problem+json），
+// 字段是 type/title/status/detail，与项目信封不同。统一在这里识别。
+interface ProblemDetail {
+  type?: string;
+  title?: string;
+  status?: number;
+  detail?: string;
+}
+
+function isProblem(body: unknown): body is ProblemDetail {
+  return (
+    typeof body === 'object' &&
+    body !== null &&
+    'detail' in body &&
+    typeof (body as ProblemDetail).detail === 'string'
+  );
+}
+
 export const CODE_OK = 0;
 export const CODE_PASSWORD_CHANGE_REQUIRED = 10100;
 export const CODE_UNAUTHENTICATED = 90004;
@@ -89,9 +107,9 @@ export async function request<T>(
     throw new ApiError(CODE_UNAUTHENTICATED, '登录已失效，请重新登录');
   }
 
-  let body: Envelope<T>;
+  let body: Envelope<T> | ProblemDetail;
   try {
-    body = (await response.json()) as Envelope<T>;
+    body = (await response.json()) as Envelope<T> | ProblemDetail;
   } catch {
     throw new ApiError(
       response.status,
@@ -99,17 +117,22 @@ export async function request<T>(
     );
   }
   if (!response.ok) {
+    if (isProblem(body)) {
+      throw new ApiError(body.status || response.status, translate(body.detail || body.title || `HTTP ${response.status}`));
+    }
+    const env = body as Envelope<T>;
     throw new ApiError(
-      body.code || response.status,
-      body.msg ? translate(body.msg) : `HTTP ${response.status}`,
+      env.code || response.status,
+      env.msg ? translate(env.msg) : `HTTP ${response.status}`,
     );
   }
-  if (body.code !== CODE_OK) {
-    if (body.code === CODE_PASSWORD_CHANGE_REQUIRED)
+  const env = body as Envelope<T>;
+  if (env.code !== CODE_OK) {
+    if (env.code === CODE_PASSWORD_CHANGE_REQUIRED)
       handlers.onPasswordChangeRequired?.();
-    throw new ApiError(body.code, body.msg || `业务错误 ${body.code}`);
+    throw new ApiError(env.code, env.msg || `业务错误 ${env.code}`);
   }
-  return body.data as T;
+  return env.data as T;
 }
 
 const json = (body: unknown): string => JSON.stringify(body);
@@ -271,14 +294,22 @@ export async function uploadImage(file: File): Promise<string> {
     handlers.onUnauthorized?.();
     throw new ApiError(CODE_UNAUTHENTICATED, '登录已失效，请重新登录');
   }
-  let body: Envelope<{ url: string }>;
+  let body: Envelope<{ url: string }> | ProblemDetail;
   try {
-    body = (await response.json()) as Envelope<{ url: string }>;
+    body = (await response.json()) as Envelope<{ url: string }> | ProblemDetail;
   } catch {
     throw new ApiError(response.status, `响应不是 JSON（HTTP ${response.status}）`);
   }
-  if (!response.ok || body.code !== CODE_OK) {
-    throw new ApiError(body.code || response.status, body.msg || `上传失败（HTTP ${response.status}）`);
+  if (!response.ok) {
+    if (isProblem(body)) {
+      throw new ApiError(body.status || response.status, translate(body.detail || body.title || `上传失败（HTTP ${response.status}）`));
+    }
+    const env = body as Envelope<{ url: string }>;
+    throw new ApiError(env.code || response.status, env.msg || `上传失败（HTTP ${response.status}）`);
   }
-  return body.data!.url;
+  const env = body as Envelope<{ url: string }>;
+  if (env.code !== CODE_OK) {
+    throw new ApiError(env.code, env.msg || `上传失败（HTTP ${response.status}）`);
+  }
+  return env.data!.url;
 }
