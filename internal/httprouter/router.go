@@ -43,6 +43,25 @@ func New(d Deps) http.Handler {
 	}
 	r := platformhttp.New(authn)
 
+	// Huma API 与现有注册器共用同一个 mux 和顶层中间件链。
+	// 试点阶段只把 systemconfig 迁到 Huma（code-first OpenAPI + 自动校验），
+	// 其余模块仍走各自 Register。
+	var humaAuthn platformhttp.HumaAuthenticator
+	if d.Authn != nil {
+		humaAuthn = d.Authn
+	}
+	humaAPI := platformhttp.NewHumaAPI(r.Mux(), platformhttp.HumaConfig{
+		Title:       "stream-hub API",
+		Version:     "1.0.0",
+		Description: "流媒体数据服务接口；由 Go 类型自动生成 OpenAPI 3.1。",
+		SpecPath:    "/openapi",
+		DocsPath:    "/docs",
+	}, humaAuthn)
+	r.SetHumaAPI(humaAPI)
+	if d.SystemConfig != nil {
+		d.SystemConfig.RegisterHuma(humaAPI)
+	}
+
 	// 各业务模块自注册自己的路由与鉴权级别。
 	if d.Authn != nil {
 		d.Authn.Register(r)

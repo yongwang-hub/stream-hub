@@ -31,13 +31,15 @@ type Config struct {
 }
 
 // Writable 是 PUT 允许修改的字段子集；只读字段即使前端传了也被忽略。
+// 所有字段可选（Huma 与 encoding/json 都以此为准），未传字段保持原值；
+// product_name 的非空校验仍由 Service.validate 负责。
 type Writable struct {
-	ProductName    string `json:"product_name"`
-	LoginBg        string `json:"login_bg"`
-	ProductIcon    string `json:"product_icon"`
-	WarningText    string `json:"warning_text"`
-	Watermark      bool   `json:"watermark"`
-	ActivationCode string `json:"activation_code"`
+	ProductName    string `json:"product_name,omitempty"`
+	LoginBg        string `json:"login_bg,omitempty"`
+	ProductIcon    string `json:"product_icon,omitempty"`
+	WarningText    string `json:"warning_text,omitempty"`
+	Watermark      bool   `json:"watermark,omitempty"`
+	ActivationCode string `json:"activation_code,omitempty"`
 }
 
 // Stored 是可改字段的存储形态，与 sys_config 表列一一对应。

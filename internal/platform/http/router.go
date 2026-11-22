@@ -13,6 +13,8 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/danielgtaylor/huma/v2"
+
 	"stream-hub/internal/httpx"
 )
 
@@ -34,6 +36,7 @@ type Router struct {
 	jsonMux   *http.ServeMux
 	streamMux *http.ServeMux
 	authn     Authenticator
+	humaAPI   huma.API
 }
 
 func New(authn Authenticator) *Router {
@@ -43,6 +46,15 @@ func New(authn Authenticator) *Router {
 		authn:     nonNil(authn),
 	}
 }
+
+// Mux 返回 JSON 路由的底层 mux，供 Huma 等框架在同一路由树上并存。
+func (r *Router) Mux() *http.ServeMux { return r.jsonMux }
+
+// SetHumaAPI 记录本路由树上的 Huma API 实例（同一 mux，共享顶层中间件）。
+func (r *Router) SetHumaAPI(api huma.API) { r.humaAPI = api }
+
+// HumaAPI 返回已装配的 Huma API；未启用时为 nil。
+func (r *Router) HumaAPI() huma.API { return r.humaAPI }
 
 // nonNil 把 typed-nil（如 (*auth.Authenticator)(nil) 装进接口）归一成真正的 nil，
 // 避免调用方忘记判断就传入时挂上空指针鉴权关卡。

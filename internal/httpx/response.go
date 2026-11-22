@@ -13,6 +13,7 @@ package httpx
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"strings"
 )
@@ -54,7 +55,13 @@ const (
 func writeJSON(w http.ResponseWriter, httpStatus int, code int, msg string, data any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(httpStatus) // 状态码必须在写 body 之前设置
-	_ = json.NewEncoder(w).Encode(Response{Code: code, Msg: msg, Data: data})
+	_ = WriteResponse(w, code, msg, data)
+}
+
+// WriteResponse 把统一信封写到任意 writer（Huma 中间件等无 ResponseWriter 的场景）。
+// 调用方负责设置 HTTP 状态码与 Content-Type。
+func WriteResponse(w io.Writer, code int, msg string, data any) error {
+	return json.NewEncoder(w).Encode(Response{Code: code, Msg: msg, Data: data})
 }
 
 // ---- 业务响应：HTTP 恒 200，成功与否由 code 表达 ----
