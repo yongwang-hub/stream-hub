@@ -6,7 +6,7 @@ import { defineConfig } from 'vitest/config';
 // 后端 CORS 白名单已包含 http://localhost:5173，直连也能工作。
 const backend = process.env.STREAM_HUB_BACKEND ?? 'http://127.0.0.1:8080';
 const proxy = Object.fromEntries(
-  ['/api', '/login', '/me', '/ping', '/healthz', '/readyz'].map((prefix) => [
+  ['/api', '/ping', '/healthz', '/readyz'].map((prefix) => [
     prefix,
     { target: backend, changeOrigin: true },
   ]),

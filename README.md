@@ -47,7 +47,7 @@ curl http://127.0.0.1:9090/metrics          # 诊断端口：Prometheus 指标
 curl -N "http://127.0.0.1:8080/api/v1/stream/channels?token=<jwt>"   # SSE 实时事件流
 ```
 
-**登录口令**：出厂管理员固定为 `admin/admin`（由 `identity.Seed` 幂等写入，不读环境变量）；首次登录返回 `code=10100`，必须先 `PUT /me/password` 改密，改密后旧 token 立即失效。seed 只在账号不存在时创建，不会覆盖已修改过的密码。
+**登录口令**：出厂管理员固定为 `admin/admin`（由 `identity.Seed` 幂等写入，不读环境变量）；首次登录返回 `code=10100`，必须先 `PUT /api/v1/me/password` 改密，改密后旧 token 立即失效。seed 只在账号不存在时创建，不会覆盖已修改过的密码。
 
 关闭认证（本地联调）：`STREAM_HUB_AUTH_ENABLED=false`，此时频道、SSE 与系统配置写入均匿名可用；用户/角色管理接口不会注册（避免出现无鉴权的账号操作敞口）。
 
@@ -71,7 +71,7 @@ curl -N "http://127.0.0.1:8080/api/v1/stream/channels?token=<jwt>"   # SSE 实�
 ```powershell
 cd web
 pnpm install
-pnpm dev          # http://localhost:5173；Vite proxy 把 /api /login /me /healthz 转到 :8080
+pnpm dev          # http://localhost:5173；Vite proxy 把 /api /healthz 转到 :8080
 pnpm build        # 产物 web/dist/
 pnpm check        # svelte-check：0 error / 0 warning
 pnpm lint         # Biome
@@ -221,8 +221,8 @@ stream-hub/
 
 | 方法 + 路径 | 鉴权 | 说明 |
 |---|---|---|
-| `POST /login` | 公开 | `{username,password}` → `{token,expires_in,must_change}`；首次登录 `must_change=true` |
-| `PUT /me/password` | 登录态 | `{old_password,new_password}` → 新 token（旧 token 随之失效） |
+| `POST /api/v1/login` | 公开 | `{username,password}` → `{token,expires_in,must_change}`；首次登录 `must_change=true` |
+| `PUT /api/v1/me/password` | 登录态 | `{old_password,new_password}` → 新 token（旧 token 随之失效） |
 | `GET /api/v1/users` | `user:list` | 用户列表 |
 | `POST /api/v1/users` | `user:create` | 新建用户 |
 | `PUT /api/v1/users/{id}` | `user:update` | 修改用户（启用/禁用、重置密码） |

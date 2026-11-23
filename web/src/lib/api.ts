@@ -129,8 +129,12 @@ export async function request<T>(
   }
   const env = body as Envelope<T>;
   if (env.code !== CODE_OK) {
-    if (env.code === CODE_PASSWORD_CHANGE_REQUIRED)
+    // 10100 不是错误：首次登录成功但必须先改密，响应里的 token 仍需交给调用方
+    // （丢了它，强制改密弹窗的请求就会因缺 Bearer token 而失败）。
+    if (env.code === CODE_PASSWORD_CHANGE_REQUIRED) {
       handlers.onPasswordChangeRequired?.();
+      return env.data as T;
+    }
     throw new ApiError(env.code, env.msg || `业务错误 ${env.code}`);
   }
   return env.data as T;
@@ -159,7 +163,7 @@ export const api = {
   // 否则会被当成 token 失效清掉登录态（旧密码输错就被踢回登录页的 bug）。
   login: (username: string, password: string) =>
     request<LoginResult>(
-      '/login',
+      '/api/v1/login',
       {
         method: 'POST',
         body: json({ username, password }),
@@ -169,7 +173,7 @@ export const api = {
 
   changePassword: (oldPassword: string, newPassword: string) =>
     request<TokenResult>(
-      '/me/password',
+      '/api/v1/me/password',
       {
         method: 'PUT',
         body: json({ old_password: oldPassword, new_password: newPassword }),
