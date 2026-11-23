@@ -219,15 +219,17 @@ stream-hub/
 
 ## 前后端接口契约
 
+**列表分页**：`GET /api/v1/channels`、`/users`、`/roles` 接受 `page`（从 1 开始，默认 1）与 `page_size`（默认 20，最大 100），响应 `data` 为 `{items, total, page, page_size}`。参数由 Huma 声明并写入 OpenAPI，前端类型随之派生。用户/角色页的搜索仅对当前页过滤。
+
 | 方法 + 路径 | 鉴权 | 说明 |
 |---|---|---|
 | `POST /api/v1/login` | 公开 | `{username,password}` → `{token,expires_in,must_change}`；首次登录 `must_change=true` |
 | `PUT /api/v1/me/password` | 登录态 | `{old_password,new_password}` → 新 token（旧 token 随之失效） |
-| `GET /api/v1/users` | `user:list` | 用户列表 |
+| `GET /api/v1/users` | `user:list` | 用户列表（分页） |
 | `POST /api/v1/users` | `user:create` | 新建用户 |
 | `PUT /api/v1/users/{id}` | `user:update` | 修改用户（启用/禁用、重置密码） |
 | `DELETE /api/v1/users/{id}` | `user:delete` | 删除用户 |
-| `GET /api/v1/roles`、`POST /api/v1/roles`、`PUT/DELETE /api/v1/roles/{id}` | `role:manage` | 角色 CRUD 与权限分配 |
+| `GET /api/v1/roles`（分页）、`POST /api/v1/roles`、`PUT/DELETE /api/v1/roles/{id}` | `role:manage` | 角色 CRUD 与权限分配 |
 | `GET /api/v1/system-config` | 公开 | 登录页品牌/背景/图标/警示语 + 只读设备信息 |
 | `PUT /api/v1/system-config` | `config:manage` | 更新可写配置字段 |
 | `POST /api/v1/system-config/upload` | `config:manage` | 上传图片（≤5MiB，png/jpg/jpeg/webp/gif），返回 URL |
@@ -238,7 +240,7 @@ stream-hub/
 | `GET /ping` | 公开 | 存活性探测 |
 | `GET /healthz` | 公开 | liveness，不查依赖 |
 | `GET /readyz` | 公开 | readiness，失败返回 503 + `code=90009` |
-| `GET /api/v1/channels` | 登录态 | 频道列表 |
+| `GET /api/v1/channels` | 登录态 | 频道列表（分页） |
 | `POST /api/v1/channels` | `channel:manage` | `{slug,name,source_url}` → 频道 |
 | `GET /api/v1/channels/{id}` | 登录态 | 单频道 |
 | `PUT /api/v1/channels/{id}` | `channel:manage` | 局部更新 `name/source_url/status` |

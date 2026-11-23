@@ -399,40 +399,40 @@ export interface components {
             data?: components["schemas"]["Config"];
             msg: string;
         };
-        EnvelopeListAdminRole: {
+        EnvelopePageAdminRole: {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/EnvelopeListAdminRole.json
+             * @example /api/v1/schemas/EnvelopePageAdminRole.json
              */
             readonly $schema?: string;
             /** Format: int64 */
             code: number;
-            data?: components["schemas"]["AdminRole"][] | null;
+            data?: components["schemas"]["PageAdminRole"];
             msg: string;
         };
-        EnvelopeListAdminUser: {
+        EnvelopePageAdminUser: {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/EnvelopeListAdminUser.json
+             * @example /api/v1/schemas/EnvelopePageAdminUser.json
              */
             readonly $schema?: string;
             /** Format: int64 */
             code: number;
-            data?: components["schemas"]["AdminUser"][] | null;
+            data?: components["schemas"]["PageAdminUser"];
             msg: string;
         };
-        EnvelopeListChannel: {
+        EnvelopePageChannel: {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/EnvelopeListChannel.json
+             * @example /api/v1/schemas/EnvelopePageChannel.json
              */
             readonly $schema?: string;
             /** Format: int64 */
             code: number;
-            data?: components["schemas"]["Channel"][] | null;
+            data?: components["schemas"]["PageChannel"];
             msg: string;
         };
         EnvelopePublishResult: {
@@ -542,6 +542,33 @@ export interface components {
             /** @description 用户名 */
             username: string;
         };
+        PageAdminRole: {
+            items: components["schemas"]["AdminRole"][] | null;
+            /** Format: int64 */
+            page: number;
+            /** Format: int64 */
+            page_size: number;
+            /** Format: int64 */
+            total: number;
+        };
+        PageAdminUser: {
+            items: components["schemas"]["AdminUser"][] | null;
+            /** Format: int64 */
+            page: number;
+            /** Format: int64 */
+            page_size: number;
+            /** Format: int64 */
+            total: number;
+        };
+        PageChannel: {
+            items: components["schemas"]["Channel"][] | null;
+            /** Format: int64 */
+            page: number;
+            /** Format: int64 */
+            page_size: number;
+            /** Format: int64 */
+            total: number;
+        };
         PasswordInputBody: {
             /**
              * Format: uri
@@ -640,7 +667,12 @@ export type $defs = Record<string, never>;
 export interface operations {
     "list-channels": {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description 页码，从 1 开始 */
+                page?: number;
+                /** @description 每页条数（1-100） */
+                page_size?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -653,7 +685,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EnvelopeListChannel"];
+                    "application/json": components["schemas"]["EnvelopePageChannel"];
                 };
             };
             /** @description Error */
@@ -897,7 +929,12 @@ export interface operations {
     };
     "list-roles": {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description 页码，从 1 开始 */
+                page?: number;
+                /** @description 每页条数（1-100） */
+                page_size?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -910,7 +947,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EnvelopeListAdminRole"];
+                    "application/json": components["schemas"]["EnvelopePageAdminRole"];
                 };
             };
             /** @description Error */
@@ -1154,7 +1191,12 @@ export interface operations {
     };
     "list-users": {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description 页码，从 1 开始 */
+                page?: number;
+                /** @description 每页条数（1-100） */
+                page_size?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -1167,7 +1209,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EnvelopeListAdminUser"];
+                    "application/json": components["schemas"]["EnvelopePageAdminUser"];
                 };
             };
             /** @description Error */

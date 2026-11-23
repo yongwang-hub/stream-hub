@@ -151,10 +151,15 @@ type Schemas = components['schemas'];
 /** 用户管理：GET/POST/PUT/DELETE /api/v1/users。 */
 export type AdminUser = Schemas['AdminUser'];
 export type AdminUserInput = Schemas['AdminUserInput'];
+export type AdminUserPage = Schemas['PageAdminUser'];
 
 /** 角色管理：GET/POST/PUT/DELETE /api/v1/roles。 */
 export type AdminRole = Schemas['AdminRole'];
 export type AdminRoleInput = Schemas['AdminRoleInput'];
+export type AdminRolePage = Schemas['PageAdminRole'];
+
+/** 频道列表分页载荷。 */
+export type ChannelPage = Schemas['PageChannel'];
 
 /** 系统配置：可改字段落库、只读元数据由后端启动时采集一次。 */
 export type SystemConfig = Schemas['Config'];
@@ -184,7 +189,8 @@ export const api = {
       { auth: false },
     ),
 
-  listChannels: () => request<Channel[]>('/api/v1/channels'),
+  listChannels: (page = 1, pageSize = 20) =>
+    request<ChannelPage>(`/api/v1/channels?page=${page}&page_size=${pageSize}`),
 
   createChannel: (input: ChannelInput) =>
     request<Channel>('/api/v1/channels', { method: 'POST', body: json(input) }),
@@ -210,7 +216,8 @@ export const api = {
     ),
 
   // ---- 用户管理（真接口 /api/v1/users）----
-  listAdminUsers: () => request<AdminUser[]>('/api/v1/users'),
+  listAdminUsers: (page = 1, pageSize = 20) =>
+    request<AdminUserPage>(`/api/v1/users?page=${page}&page_size=${pageSize}`),
   createAdminUser: (input: AdminUserInput) =>
     request<AdminUser>('/api/v1/users', { method: 'POST', body: json(input) }),
   updateAdminUser: (id: number, input: AdminUserInput) =>
@@ -222,7 +229,8 @@ export const api = {
     request<{ deleted: number }>(`/api/v1/users/${id}`, { method: 'DELETE' }),
 
   // ---- 角色管理（真接口 /api/v1/roles）----
-  listRoles: () => request<AdminRole[]>('/api/v1/roles'),
+  listRoles: (page = 1, pageSize = 20) =>
+    request<AdminRolePage>(`/api/v1/roles?page=${page}&page_size=${pageSize}`),
   createRole: (input: AdminRoleInput) =>
     request<AdminRole>('/api/v1/roles', { method: 'POST', body: json(input) }),
   updateRole: (id: number, input: AdminRoleInput) =>

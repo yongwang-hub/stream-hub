@@ -25,6 +25,10 @@
   let roleOptions = $state<AdminRole[]>([]);
   let loading = $state(false);
   let keyword = $state('');
+  let page = $state(1);
+  let total = $state(0);
+  const pageSize = 20;
+  const totalPages = $derived(Math.max(1, Math.ceil(total / pageSize)));
   let showModal = $state(false);
   let editing = $state<AdminUser | null>(null);
   let form = $state({
@@ -50,9 +54,13 @@
   async function load(): Promise<void> {
     loading = true;
     try {
-      const [u, r] = await Promise.all([api.listAdminUsers(), api.listRoles()]);
-      users = u;
-      roleOptions = r;
+      const [u, r] = await Promise.all([
+        api.listAdminUsers(page, pageSize),
+        api.listRoles(1, 100),
+      ]);
+      users = u.items ?? [];
+      total = u.total;
+      roleOptions = r.items ?? [];
     } catch (err) {
       toast.error(describe(err));
     } finally {
@@ -63,6 +71,11 @@
   onMount(() => {
     void load();
   });
+
+  async function gotoPage(next: number): Promise<void> {
+    page = next;
+    await load();
+  }
 
   function openCreate(): void {
     editing = null;
@@ -149,7 +162,7 @@
     <div class="mb-4 flex flex-wrap items-center gap-2">
       <div class="relative min-w-[200px] flex-1 md:max-w-xs">
         <Icon name="search" size={15} class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-        <input class={cn(inputClass, 'pl-9')} placeholder="搜索用户名 / 邮箱" bind:value={keyword} />
+        <input class={cn(inputClass, 'pl-9')} placeholder="搜索当前页用户名 / 邮箱" bind:value={keyword} />
       </div>
       <Button variant="outline" size="sm" icon="refresh" onclick={() => void load()} disabled={loading}>
         刷新
@@ -222,8 +235,12 @@
       </table>
     </div>
 
-    <div class="mt-4 flex justify-end gap-3 text-xs text-muted-foreground">
-      <span>共 {filtered.length} 条</span><span>10 条/页</span><span>第 1 页</span>
+    <div class="mt-4 flex flex-wrap items-center justify-end gap-3 text-xs text-muted-foreground">
+      <span>共 {total} 条</span>
+      <span>{pageSize} 条/页</span>
+      <span>第 {page} / {totalPages} 页</span>
+      <Button variant="outline" size="sm" disabled={page <= 1 || loading} onclick={() => void gotoPage(page - 1)}>上一页</Button>
+      <Button variant="outline" size="sm" disabled={page >= totalPages || loading} onclick={() => void gotoPage(page + 1)}>下一页</Button>
     </div>
   </div>
 </div>

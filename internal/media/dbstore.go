@@ -58,21 +58,31 @@ func (s *dbStore) Create(ctx context.Context, c *Channel) error {
 	return nil
 }
 
-func (s *dbStore) List(ctx context.Context) ([]*Channel, error) {
-	rows, err := s.db.QueryContext(ctx, selectCols+` ORDER BY id`)
+func (s *dbStore) List(ctx context.Context, offset, limit int) ([]*Channel, int64, error) {
+	var total int64
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM channels`).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count channels: %w", err)
+	}
+	q := selectCols + ` ORDER BY id`
+	args := []any{}
+	if limit > 0 {
+		q += ` LIMIT ? OFFSET ?`
+		args = append(args, limit, offset)
+	}
+	rows, err := s.db.QueryContext(ctx, s.d.Rebind(q), args...)
 	if err != nil {
-		return nil, fmt.Errorf("list channels: %w", err)
+		return nil, 0, fmt.Errorf("list channels: %w", err)
 	}
 	defer rows.Close()
 	out := []*Channel{}
 	for rows.Next() {
 		c, err := scanChannel(rows)
 		if err != nil {
-			return nil, fmt.Errorf("scan channel: %w", err)
+			return nil, 0, fmt.Errorf("scan channel: %w", err)
 		}
 		out = append(out, c)
 	}
-	return out, rows.Err()
+	return out, total, rows.Err()
 }
 
 func (s *dbStore) Get(ctx context.Context, id int64) (*Channel, error) {

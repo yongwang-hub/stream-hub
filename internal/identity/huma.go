@@ -16,8 +16,12 @@ import (
 // Huma DTO：Input/Output 既是 OpenAPI schema 也是校验来源。
 // 输出用 httpx.Envelope[T]（T 具体），让 data 结构进入 OpenAPI 供前端生成类型。
 
-type listUsersInput struct{}
-type listRolesInput struct{}
+type listUsersInput struct {
+	httpx.PageInput
+}
+type listRolesInput struct {
+	httpx.PageInput
+}
 
 type createUserInput struct {
 	Body AdminUserInput `json:"body"`
@@ -47,13 +51,13 @@ type AdminDeleteResult struct {
 }
 
 type usersOutput struct {
-	Body httpx.Envelope[[]AdminUser] `json:"body"`
+	Body httpx.Envelope[httpx.Page[AdminUser]] `json:"body"`
 }
 type userOutput struct {
 	Body httpx.Envelope[AdminUser] `json:"body"`
 }
 type rolesOutput struct {
-	Body httpx.Envelope[[]AdminRole] `json:"body"`
+	Body httpx.Envelope[httpx.Page[AdminRole]] `json:"body"`
 }
 type roleOutput struct {
 	Body httpx.Envelope[AdminRole] `json:"body"`
@@ -86,12 +90,16 @@ func (h *AdminHandler) RegisterHuma(api huma.API) {
 		OperationID: "list-users", Method: http.MethodGet, Path: "/users",
 		Summary: "用户列表", Tags: userTag, Security: platformhttp.BearerSecurity(),
 		Metadata: map[string]any{"permission": auth.PermUserList},
-	}, func(ctx context.Context, _ *listUsersInput) (*usersOutput, error) {
-		users, err := h.repo.ListUsers(ctx)
+	}, func(ctx context.Context, in *listUsersInput) (*usersOutput, error) {
+		p := in.PageInput.Normalize()
+		users, total, err := h.repo.ListUsers(ctx, p.Offset(), p.PageSize)
 		if err != nil {
 			return nil, adminHumaErr(ctx, err)
 		}
-		return &usersOutput{Body: httpx.Envelope[[]AdminUser]{Code: httpx.CodeOK, Msg: "ok", Data: users}}, nil
+		return &usersOutput{Body: httpx.Envelope[httpx.Page[AdminUser]]{
+			Code: httpx.CodeOK, Msg: "ok",
+			Data: httpx.Page[AdminUser]{Items: users, Total: total, Page: p.Page, PageSize: p.PageSize},
+		}}, nil
 	})
 
 	huma.Register(api, huma.Operation{
@@ -135,12 +143,16 @@ func (h *AdminHandler) RegisterHuma(api huma.API) {
 		OperationID: "list-roles", Method: http.MethodGet, Path: "/roles",
 		Summary: "角色列表", Tags: roleTag, Security: platformhttp.BearerSecurity(),
 		Metadata: map[string]any{"permission": auth.PermRoleManage},
-	}, func(ctx context.Context, _ *listRolesInput) (*rolesOutput, error) {
-		roles, err := h.repo.ListRoles(ctx)
+	}, func(ctx context.Context, in *listRolesInput) (*rolesOutput, error) {
+		p := in.PageInput.Normalize()
+		roles, total, err := h.repo.ListRoles(ctx, p.Offset(), p.PageSize)
 		if err != nil {
 			return nil, adminHumaErr(ctx, err)
 		}
-		return &rolesOutput{Body: httpx.Envelope[[]AdminRole]{Code: httpx.CodeOK, Msg: "ok", Data: roles}}, nil
+		return &rolesOutput{Body: httpx.Envelope[httpx.Page[AdminRole]]{
+			Code: httpx.CodeOK, Msg: "ok",
+			Data: httpx.Page[AdminRole]{Items: roles, Total: total, Page: p.Page, PageSize: p.PageSize},
+		}}, nil
 	})
 
 	huma.Register(api, huma.Operation{

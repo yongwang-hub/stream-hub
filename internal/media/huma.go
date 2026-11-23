@@ -12,7 +12,9 @@ import (
 	platformhttp "stream-hub/internal/platform/http"
 )
 
-type listInput struct{}
+type listInput struct {
+	httpx.PageInput
+}
 type getInput struct {
 	ID int64 `path:"id" doc:"频道 ID" minimum:"1"`
 }
@@ -33,7 +35,7 @@ type ChannelDeleteResult struct {
 }
 
 type channelsOutput struct {
-	Body httpx.Envelope[[]*Channel] `json:"body"`
+	Body httpx.Envelope[httpx.Page[*Channel]] `json:"body"`
 }
 type channelOutput struct {
 	Body httpx.Envelope[*Channel] `json:"body"`
@@ -64,12 +66,16 @@ func (h *Handler) RegisterHuma(api huma.API) {
 	huma.Register(api, huma.Operation{
 		OperationID: "list-channels", Method: http.MethodGet, Path: "/channels",
 		Summary: "频道列表", Tags: tag, Security: platformhttp.BearerSecurity(),
-	}, func(ctx context.Context, _ *listInput) (*channelsOutput, error) {
-		list, err := h.svc.List(ctx)
+	}, func(ctx context.Context, in *listInput) (*channelsOutput, error) {
+		p := in.PageInput.Normalize()
+		items, total, err := h.svc.List(ctx, p.Offset(), p.PageSize)
 		if err != nil {
 			return nil, huma.Error500InternalServerError("list channels failed")
 		}
-		return &channelsOutput{Body: httpx.Envelope[[]*Channel]{Code: httpx.CodeOK, Msg: "ok", Data: list}}, nil
+		return &channelsOutput{Body: httpx.Envelope[httpx.Page[*Channel]]{
+			Code: httpx.CodeOK, Msg: "ok",
+			Data: httpx.Page[*Channel]{Items: items, Total: total, Page: p.Page, PageSize: p.PageSize},
+		}}, nil
 	})
 
 	huma.Register(api, huma.Operation{

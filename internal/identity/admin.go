@@ -73,12 +73,21 @@ func NewAdminRepo(dbs *sql.DB, d db.Dialect) *AdminRepo {
 
 // ---- 用户 ----
 
-func (r *AdminRepo) ListUsers(ctx context.Context) ([]AdminUser, error) {
-	rows, err := r.db.QueryContext(ctx, r.d.Rebind(
-		`SELECT id, username, COALESCE(email, ''), enabled, password_changed_at IS NOT NULL
-		 FROM sys_users ORDER BY id`))
+func (r *AdminRepo) ListUsers(ctx context.Context, offset, limit int) ([]AdminUser, int64, error) {
+	var total int64
+	if err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM sys_users`).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count users: %w", err)
+	}
+	q := `SELECT id, username, COALESCE(email, ''), enabled, password_changed_at IS NOT NULL
+		 FROM sys_users ORDER BY id`
+	args := []any{}
+	if limit > 0 {
+		q += ` LIMIT ? OFFSET ?`
+		args = append(args, limit, offset)
+	}
+	rows, err := r.db.QueryContext(ctx, r.d.Rebind(q), args...)
 	if err != nil {
-		return nil, fmt.Errorf("list users: %w", err)
+		return nil, 0, fmt.Errorf("list users: %w", err)
 	}
 	defer rows.Close()
 
@@ -87,20 +96,20 @@ func (r *AdminRepo) ListUsers(ctx context.Context) ([]AdminUser, error) {
 		var u AdminUser
 		var enabled int
 		if err := rows.Scan(&u.ID, &u.Username, &u.Email, &enabled, &u.PasswordChanged); err != nil {
-			return nil, fmt.Errorf("scan user: %w", err)
+			return nil, 0, fmt.Errorf("scan user: %w", err)
 		}
 		u.Enabled = enabled == 1
 		u.Roles, u.RoleIDs = []string{}, []int{}
 		users = append(users, u)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	rows.Close() // SQLite 只有一条连接，先释放 rows，下面的角色 JOIN 才能拿到连接
 	if err := r.attachUserRoles(ctx, users); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	return users, nil
+	return users, total, nil
 }
 
 func (r *AdminRepo) UserByID(ctx context.Context, id int) (AdminUser, error) {
@@ -290,11 +299,20 @@ func (r *AdminRepo) setUserRoles(ctx context.Context, tx *sql.Tx, userID int, ro
 
 // ---- 角色 ----
 
-func (r *AdminRepo) ListRoles(ctx context.Context) ([]AdminRole, error) {
-	rows, err := r.db.QueryContext(ctx, r.d.Rebind(
-		`SELECT id, name, COALESCE(description, '') FROM sys_roles ORDER BY id`))
+func (r *AdminRepo) ListRoles(ctx context.Context, offset, limit int) ([]AdminRole, int64, error) {
+	var total int64
+	if err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM sys_roles`).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count roles: %w", err)
+	}
+	q := `SELECT id, name, COALESCE(description, '') FROM sys_roles ORDER BY id`
+	args := []any{}
+	if limit > 0 {
+		q += ` LIMIT ? OFFSET ?`
+		args = append(args, limit, offset)
+	}
+	rows, err := r.db.QueryContext(ctx, r.d.Rebind(q), args...)
 	if err != nil {
-		return nil, fmt.Errorf("list roles: %w", err)
+		return nil, 0, fmt.Errorf("list roles: %w", err)
 	}
 	defer rows.Close()
 
@@ -302,19 +320,19 @@ func (r *AdminRepo) ListRoles(ctx context.Context) ([]AdminRole, error) {
 	for rows.Next() {
 		var role AdminRole
 		if err := rows.Scan(&role.ID, &role.Name, &role.Description); err != nil {
-			return nil, fmt.Errorf("scan role: %w", err)
+			return nil, 0, fmt.Errorf("scan role: %w", err)
 		}
 		role.Permissions = []string{}
 		roles = append(roles, role)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	rows.Close() // 同上：先释放连接再查权限 JOIN
 	if err := r.attachRolePermissions(ctx, roles); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	return roles, nil
+	return roles, total, nil
 }
 
 func (r *AdminRepo) RoleByID(ctx context.Context, id int) (AdminRole, error) {

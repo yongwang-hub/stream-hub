@@ -34,7 +34,7 @@ type channelRequest struct {
 
 // List 处理 GET /api/v1/channels。
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
-	list, err := h.svc.List(r.Context())
+	list, _, err := h.svc.List(r.Context(), 0, 0)
 	if err != nil {
 		httpx.InternalError(w)
 		return

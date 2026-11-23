@@ -38,6 +38,37 @@ func TestServiceCreateBroadcastsBothChannels(t *testing.T) {
 	}
 }
 
+func TestServiceListPagination(t *testing.T) {
+	svc := NewService(NewMemStore(), nil)
+	ctx := context.Background()
+	for _, slug := range []string{"cam-1", "cam-2", "cam-3"} {
+		if _, err := svc.Create(ctx, slug, "摄像头", "https://example.com/live.m3u8"); err != nil {
+			t.Fatalf("Create(%s): %v", slug, err)
+		}
+	}
+
+	first, total, err := svc.List(ctx, 0, 2)
+	if err != nil {
+		t.Fatalf("List(first): %v", err)
+	}
+	if total != 3 || len(first) != 2 || first[0].Slug != "cam-1" || first[1].Slug != "cam-2" {
+		t.Errorf("first page: total=%d items=%+v", total, first)
+	}
+
+	second, _, err := svc.List(ctx, 2, 2)
+	if err != nil {
+		t.Fatalf("List(second): %v", err)
+	}
+	if len(second) != 1 || second[0].Slug != "cam-3" {
+		t.Errorf("second page: %+v", second)
+	}
+
+	all, _, err := svc.List(ctx, 0, 0) // limit<=0 保持旧 handler 的全量语义
+	if err != nil || len(all) != 3 {
+		t.Errorf("unlimited list: err=%v items=%d", err, len(all))
+	}
+}
+
 func TestServiceValidation(t *testing.T) {
 	svc := NewService(NewMemStore(), nil)
 	for _, tc := range []struct{ slug, name, url string }{

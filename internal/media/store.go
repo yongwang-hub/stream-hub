@@ -9,7 +9,7 @@ import (
 // Store 定义频道存储能力；所有方法首参统一收 context。
 type Store interface {
 	Create(ctx context.Context, c *Channel) error
-	List(ctx context.Context) ([]*Channel, error)
+	List(ctx context.Context, offset, limit int) ([]*Channel, int64, error)
 	Get(ctx context.Context, id int64) (*Channel, error)
 	Update(ctx context.Context, c *Channel) error
 	Delete(ctx context.Context, id int64) error
@@ -60,7 +60,7 @@ func (s *memStore) Create(_ context.Context, c *Channel) error {
 	return nil
 }
 
-func (s *memStore) List(_ context.Context) ([]*Channel, error) {
+func (s *memStore) List(_ context.Context, offset, limit int) ([]*Channel, int64, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	out := make([]*Channel, 0, len(s.byID))
@@ -69,7 +69,18 @@ func (s *memStore) List(_ context.Context) ([]*Channel, error) {
 			out = append(out, clone(c))
 		}
 	}
-	return out, nil
+	total := int64(len(out))
+	if limit <= 0 || offset >= len(out) {
+		if limit <= 0 {
+			return out, total, nil
+		}
+		return []*Channel{}, total, nil
+	}
+	end := offset + limit
+	if end > len(out) {
+		end = len(out)
+	}
+	return out[offset:end], total, nil
 }
 
 func (s *memStore) Get(_ context.Context, id int64) (*Channel, error) {

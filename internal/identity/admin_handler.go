@@ -34,7 +34,7 @@ func NewAdminHandler(repo *AdminRepo) *AdminHandler {
 // ---- 用户 ----
 
 func (h *AdminHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
-	users, err := h.repo.ListUsers(r.Context())
+	users, _, err := h.repo.ListUsers(r.Context(), 0, 0)
 	if err != nil {
 		h.writeError(r.Context(), w, err)
 		return
@@ -94,7 +94,7 @@ func (h *AdminHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 // ---- 角色 ----
 
 func (h *AdminHandler) ListRoles(w http.ResponseWriter, r *http.Request) {
-	roles, err := h.repo.ListRoles(r.Context())
+	roles, _, err := h.repo.ListRoles(r.Context(), 0, 0)
 	if err != nil {
 		h.writeError(r.Context(), w, err)
 		return

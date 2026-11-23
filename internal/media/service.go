@@ -24,7 +24,9 @@ type Service struct {
 
 func NewService(store Store, pub Publisher) *Service { return &Service{store: store, pub: pub} }
 
-func (s *Service) List(ctx context.Context) ([]*Channel, error) { return s.store.List(ctx) }
+func (s *Service) List(ctx context.Context, offset, limit int) ([]*Channel, int64, error) {
+	return s.store.List(ctx, offset, limit)
+}
 
 func (s *Service) Get(ctx context.Context, id int64) (*Channel, error) {
 	return s.store.Get(ctx, id)

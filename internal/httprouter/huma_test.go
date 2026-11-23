@@ -194,6 +194,45 @@ func TestHumaRoutesReachable(t *testing.T) {
 	}
 }
 
+func TestHumaListPaginationEnvelope(t *testing.T) {
+	svc := media.NewService(media.NewMemStore(), nil)
+	for _, slug := range []string{"cam-1", "cam-2", "cam-3"} {
+		if _, err := svc.Create(context.Background(), slug, "摄像头", "https://example.com/live.m3u8"); err != nil {
+			t.Fatalf("Create(%s): %v", slug, err)
+		}
+	}
+	h := New(Deps{Media: media.NewHandler(svc)})
+
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/v1/channels?page=2&page_size=2", nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("paginated list status=%d body=%s", w.Code, w.Body.String())
+	}
+	var resp struct {
+		Data struct {
+			Items []struct {
+				Slug string `json:"slug"`
+			} `json:"items"`
+			Total    int64 `json:"total"`
+			Page     int   `json:"page"`
+			PageSize int   `json:"page_size"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	d := resp.Data
+	if d.Total != 3 || len(d.Items) != 1 || d.Items[0].Slug != "cam-3" || d.Page != 2 || d.PageSize != 2 {
+		t.Errorf("unexpected page envelope: %+v", d)
+	}
+
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/v1/channels?page=0", nil))
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Errorf("page=0 should be rejected by Huma validation, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
 func TestHumaPublicOperationBypassesAuth(t *testing.T) {
 	// 认证开启时，公开接口（GET 系统配置 / 登录）仍不能要求 token。
 	// 回归：OpenAPI 的 security:[{}] 曾被误判为需要认证，导致登录页 401。
