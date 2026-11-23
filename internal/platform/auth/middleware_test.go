@@ -49,6 +49,31 @@ func TestOldTokenInvalidatedAfterPasswordChange(t *testing.T) {
 	}
 }
 
+func TestTokenIssuedSameSecondAsPasswordChangeStaysValid(t *testing.T) {
+	accounts := &stubAccounts{info: &AuthInfo{
+		Enabled:     true,
+		Permissions: map[string]bool{PermUserList: true},
+	}}
+	a := New("test-secret", time.Hour, accounts)
+	token, err := a.Issue("1", false)
+	if err != nil {
+		t.Fatalf("Issue: %v", err)
+	}
+	// 改密响应里新签发的 token：JWT iat 截断到秒，库时间带纳秒且更晚。
+	accounts.info.PasswordChangedAt = time.Now().Truncate(time.Second).Add(500 * time.Millisecond)
+
+	h := a.Middleware(a.RequirePermission(PermUserList)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})))
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodGet, "/users", nil)
+	r.Header.Set("Authorization", "Bearer "+token)
+	h.ServeHTTP(w, r)
+	if w.Code != http.StatusOK {
+		t.Errorf("同秒签发的新 token 不应被纳秒时间戳误判失效，实际 %d: %s", w.Code, w.Body.String())
+	}
+}
+
 func TestMiddlewareQueryTokenAcceptsQueryParam(t *testing.T) {
 	a := New("test-secret", time.Hour, nil)
 	token, _ := a.Issue("7", false)

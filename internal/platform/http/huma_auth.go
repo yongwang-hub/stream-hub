@@ -31,10 +31,13 @@ func HumaAuth(authn HumaAuthenticator, permission string) func(huma.Context, fun
 			// 否则 handler 里的 FromContext 拿不到身份，改密等接口会失败。
 			next(huma.WithContext(ctx, nextR.Context()))
 		})
-		h := authn.Middleware(bridge)
+		var h http.Handler = bridge
 		if permission != "" {
+			// 权限关卡要读 Middleware 注入的 claims，必须包在它里面：
+			// 执行顺序 = Middleware(认证) → RequirePermission(鉴权) → bridge。
 			h = authn.RequirePermission(permission)(h)
 		}
+		h = authn.Middleware(h)
 		h.ServeHTTP(w, r)
 	}
 }

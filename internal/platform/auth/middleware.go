@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"stream-hub/internal/httpx"
 )
@@ -65,8 +66,10 @@ func (a *Authenticator) RequirePermission(permission string) func(http.Handler) 
 				return
 			}
 			// 改密即吊销旧 token：iat 早于 password_changed_at 就拒绝。
+			// JWT 的 iat 只有秒精度，而库里的时间可能带纳秒；两边对齐到秒，
+			// 否则改密响应里刚签发的新 token 会被自己的 password_changed_at 判失效。
 			if claims.IssuedAt != nil && !info.PasswordChangedAt.IsZero() &&
-				info.PasswordChangedAt.After(claims.IssuedAt.Time) {
+				info.PasswordChangedAt.Truncate(time.Second).After(claims.IssuedAt.Time.Truncate(time.Second)) {
 				httpx.SystemError(w, http.StatusUnauthorized, httpx.CodeSystemUnauth,
 					"token invalidated by password change")
 				return
