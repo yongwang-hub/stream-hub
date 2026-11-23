@@ -9,13 +9,14 @@
   import Button from '../ui/Button.svelte';
   import Badge from '../ui/Badge.svelte';
   import Modal from '../ui/Modal.svelte';
+  import ListPage from '../ui/ListPage.svelte';
+  import Pagination from '../ui/Pagination.svelte';
   import { toast } from '../ui/toast.svelte';
   import { cn } from '../utils';
   import {
     inputClass,
     labelClass,
     tableClass,
-    tableWrapClass,
     thClass,
     tdClass,
     rowHoverClass,
@@ -150,30 +151,21 @@
   }
 </script>
 
-<div class="space-y-5">
-  <div>
-    <h2 class="text-xl font-semibold tracking-tight">用户管理</h2>
-    <p class="mt-1 text-sm text-muted-foreground">
-      已对接真实账号接口 <code>/api/v1/users</code>：可新增用户、设置初始密码、分配角色、启停账号；内置 admin 不能删除自己。
-    </p>
-  </div>
-
-  <div class="rounded-xl border border-border bg-card p-4 shadow-sm">
-    <div class="mb-4 flex flex-wrap items-center gap-2">
-      <div class="relative min-w-[200px] flex-1 md:max-w-xs">
-        <Icon name="search" size={15} class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-        <input class={cn(inputClass, 'pl-9')} placeholder="搜索当前页用户名 / 邮箱" bind:value={keyword} />
-      </div>
-      <Button variant="outline" size="sm" icon="refresh" onclick={() => void load()} disabled={loading}>
-        刷新
-      </Button>
-      <Button variant="ghost" size="sm" onclick={() => (keyword = '')}>重置</Button>
-      <span class="flex-1"></span>
-      <Button size="sm" icon="plus" onclick={openCreate}>新增用户</Button>
+<ListPage>
+  {#snippet filters()}
+    <div class="relative min-w-[200px] flex-1 md:max-w-xs">
+      <Icon name="search" size={15} class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+      <input class={cn(inputClass, 'pl-9')} placeholder="搜索当前页用户名 / 邮箱" bind:value={keyword} />
     </div>
+    <Button variant="outline" size="sm" icon="refresh" onclick={() => void load()} disabled={loading}>刷新</Button>
+    <Button variant="ghost" size="sm" onclick={() => (keyword = '')}>重置</Button>
+  {/snippet}
 
-    <div class={tableWrapClass}>
-      <table class={tableClass}>
+  {#snippet toolbar()}
+    <Button size="sm" icon="plus" onclick={openCreate}>新增用户</Button>
+  {/snippet}
+
+  <table class={tableClass}>
         <thead class="bg-muted/40">
           <tr>
             <th class={thClass}>ID</th>
@@ -232,18 +224,12 @@
             </tr>
           {/each}
         </tbody>
-      </table>
-    </div>
+  </table>
 
-    <div class="mt-4 flex flex-wrap items-center justify-end gap-3 text-xs text-muted-foreground">
-      <span>共 {total} 条</span>
-      <span>{pageSize} 条/页</span>
-      <span>第 {page} / {totalPages} 页</span>
-      <Button variant="outline" size="sm" disabled={page <= 1 || loading} onclick={() => void gotoPage(page - 1)}>上一页</Button>
-      <Button variant="outline" size="sm" disabled={page >= totalPages || loading} onclick={() => void gotoPage(page + 1)}>下一页</Button>
-    </div>
-  </div>
-</div>
+  {#snippet pagination()}
+    <Pagination {page} {pageSize} {total} {totalPages} disabled={loading} ongoto={(next) => void gotoPage(next)} />
+  {/snippet}
+</ListPage>
 
 <Modal
   open={showModal}

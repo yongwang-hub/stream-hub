@@ -107,12 +107,12 @@
 {#if !loaded}
   <p class="text-sm text-muted-foreground">正在加载系统配置…</p>
 {:else}
-<div>
-  <div class="rounded-xl border border-border bg-card text-card-foreground shadow-sm">
-    <header class="flex flex-wrap items-start justify-between gap-3 border-b border-border px-5 py-4">
+<div class="flex min-h-full flex-1 flex-col">
+  <div class="flex min-h-0 flex-1 flex-col rounded-xl border border-border bg-card text-card-foreground shadow-sm">
+    <header class="flex shrink-0 flex-wrap items-start justify-between gap-3 border-b border-border px-5 py-4">
       <h3 class="text-base font-semibold text-foreground">系统配置</h3>
     </header>
-    <div class="p-5">
+    <div class="min-h-0 flex-1 p-5">
       <div class="grid gap-x-6 gap-y-4 sm:grid-cols-2">
         <!-- 产品名称 | 产品版本 -->
         <div class={row}>
@@ -230,8 +230,8 @@
         </div>
       </div>
     </div>
-    <footer class="flex items-center justify-end gap-2 border-t border-border px-5 py-3">
-      <Button icon="check" onclick={save} disabled={busy}>{busy ? '保存中…' : '保存'}</Button>
+    <footer class="flex shrink-0 items-center justify-end gap-2 border-t border-border px-5 py-3">
+      <Button onclick={save} disabled={busy}>{busy ? '保存中…' : '保存'}</Button>
     </footer>
   </div>
 </div>

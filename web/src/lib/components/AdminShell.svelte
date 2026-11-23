@@ -3,8 +3,10 @@
   //   xc-header-bar: 60px / padding 0 12px / 与侧栏同色 / logo 55px / 系统名 18px·500·字距1px·text-shadow
   //   xc-side-bar:   220px + 12px×2 = 244px / 菜单项 46px / 文字 14px·500 / 图标 20px / 选中=主色实心
   //   xc-content:    padding 12px / 左上圆角 10px / 上+左边框 / 无阴影
-  // 菜单只有系统监控、系统管理两项，切换靠本地 view 状态，不引路由库。
+  // 菜单有系统监控、设备管理、系统管理三项，切换靠本地 view 状态，不引路由库。
   import defaultLogo from '../../assets/logo.png';
+  import defaultAvatar from '../../assets/default-avatar.png';
+  import CameraManage from './CameraManage.svelte';
   import Monitor from './Monitor.svelte';
   import Roles from './Roles.svelte';
   import Users from './Users.svelte';
@@ -16,7 +18,7 @@
   import { cn } from '../utils';
   import { currentTheme, toggleThemeWithCircularReveal, type Theme } from '../theme';
 
-  type View = 'monitor' | 'roles' | 'users' | 'settings';
+  type View = 'monitor' | 'cameras' | 'roles' | 'users' | 'settings';
 
   interface Props {
     onLogout: () => void;
@@ -26,6 +28,7 @@
 
   let view = $state<View>('monitor');
   let manageOpen = $state(true);
+  let deviceOpen = $state(false);
   let collapsed = $state(false);
   let theme = $state<Theme>(currentTheme());
   let userMenuOpen = $state(false);
@@ -75,7 +78,8 @@
 
   function go(next: View): void {
     view = next;
-    if (next !== 'monitor') manageOpen = true;
+    manageOpen = next === 'roles' || next === 'users' || next === 'settings';
+    deviceOpen = next === 'cameras';
   }
 
   function switchTheme(event: MouseEvent): void {
@@ -123,13 +127,11 @@
         onmouseleave={() => (userMenuOpen = false)}
       >
         <button
-          class="grid h-9 w-9 place-items-center rounded-full border-2 border-white/40 overflow-hidden"
+          class="h-9 w-9 overflow-hidden rounded-full border-2 border-white/40"
           title="用户菜单"
           aria-label="用户菜单"
         >
-          <span class="grid h-full w-full place-items-center bg-primary text-[14px] font-medium text-primary-foreground">
-            {username.slice(0, 1).toUpperCase()}
-          </span>
+          <img src={defaultAvatar} alt="用户头像" class="h-full w-full object-cover" />
         </button>
 
         {#if userMenuOpen}
@@ -137,8 +139,8 @@
           <div class="absolute right-0 top-full h-2 w-[280px]"></div>
           <div class="absolute right-0 top-full z-30 mt-2 w-[280px] overflow-hidden rounded-[8px] border border-border bg-card text-card-foreground shadow-xl">
             <div class="flex items-center gap-3 px-4 py-3">
-              <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary text-[16px] font-medium text-primary-foreground">
-                {username.slice(0, 1).toUpperCase()}
+              <span class="h-10 w-10 shrink-0 overflow-hidden rounded-full">
+                <img src={defaultAvatar} alt="用户头像" class="h-full w-full object-cover" />
               </span>
               <span class="min-w-0">
                 <span class="block truncate text-[14px] font-semibold">{username}</span>
@@ -198,7 +200,31 @@
         </button>
 
         <button
-          class={cn(itemClass(view !== 'monitor', collapsed), 'mt-1')}
+          class={cn(itemClass(false, collapsed), 'mt-1')}
+          onclick={() => (deviceOpen = !deviceOpen)}
+          title="设备管理"
+        >
+          <Icon name="device" size={20} class={iconHover} />
+          {#if !collapsed}
+            <span class="flex-1 text-left">设备管理</span>
+            <Icon
+              name="chevron-down"
+              size={16}
+              class={cn('transition-transform', deviceOpen ? '' : '-rotate-90')}
+            />
+          {/if}
+        </button>
+
+        {#if deviceOpen && !collapsed}
+          <div class="ml-5 mt-1 space-y-0.5 border-l border-white/10 pl-3">
+            <button class={itemClass(view === 'cameras')} onclick={() => go('cameras')}>
+              <Icon name="camera" size={19} class={iconHover} /> 摄像机管理
+            </button>
+          </div>
+        {/if}
+
+        <button
+          class={cn(itemClass(false, collapsed), 'mt-1')}
           onclick={() => (manageOpen = !manageOpen)}
           title="系统管理"
         >
@@ -245,9 +271,11 @@
     <main
       class="ui-scroll min-w-0 flex-1 overflow-auto rounded-tl-[10px] border-l border-t border-border bg-background p-3 text-foreground"
     >
-      <div class="mx-auto max-w-[1440px] ui-fade-in">
+      <div class="mx-auto flex min-h-full max-w-[1440px] flex-col ui-fade-in">
         {#if view === 'monitor'}
           <Monitor />
+        {:else if view === 'cameras'}
+          <CameraManage />
         {:else if view === 'roles'}
           <Roles />
         {:else if view === 'users'}
