@@ -67,6 +67,10 @@ func Migrate(db *sql.DB, d Dialect) error {
 			return fmt.Errorf("commit migrate %d: %w", m.version, err)
 		}
 	}
+	// 老库可能已经记录过旧版 0004，这里按实际列结构补齐升级，避免写接口 500。
+	if err := compactCamerasIfNeeded(db, d); err != nil {
+		return err
+	}
 	return nil
 }
 

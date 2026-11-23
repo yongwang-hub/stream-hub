@@ -29,6 +29,7 @@ const (
 	PermUserDelete    = "user:delete"
 	PermRoleManage    = "role:manage"
 	PermChannelManage = "channel:manage"
+	PermCameraManage  = "camera:manage"
 	PermStreamPublish = "stream:publish"
 	PermConfigManage  = "config:manage"
 )
@@ -36,7 +37,7 @@ const (
 // AllPermissions 是 seed 要写入 sys_permissions 的全集，也是路由引用的权威清单。
 var AllPermissions = []string{
 	PermUserList, PermUserRead, PermUserCreate, PermUserUpdate, PermUserDelete,
-	PermRoleManage, PermChannelManage, PermStreamPublish, PermConfigManage,
+	PermRoleManage, PermChannelManage, PermCameraManage, PermStreamPublish, PermConfigManage,
 }
 
 // LoginAccount 登录校验所需最小信息。

@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"stream-hub/internal/camera"
 	"stream-hub/internal/db"
 	"stream-hub/internal/httprouter"
 	"stream-hub/internal/identity"
@@ -57,6 +58,7 @@ func buildHandlerForSpec() http.Handler {
 		Authn:        auth.New("spec-only-secret", time.Hour, nil),
 		Admin:        identity.NewAdminHandler(identity.NewAdminRepo(nil, db.Dialect{})),
 		Media:        media.NewHandler(media.NewService(media.NewMemStore(), nil)),
+		Camera:       camera.NewHandler(camera.NewService(camera.NewMemStore())),
 		Metrics:      metrics.NewHandler(metrics.NewService(metrics.NewCollector(), nil, time.Second, 10)),
 		SystemConfig: systemconfig.NewHandler(systemconfig.NewService(systemconfig.NewMemStore(), info), nil),
 		Stream:       stream.NewHandler(stream.NewHub(0)),

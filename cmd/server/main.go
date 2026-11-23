@@ -17,6 +17,7 @@ import (
 	"syscall"
 	"time"
 
+	"stream-hub/internal/camera"
 	"stream-hub/internal/config"
 	"stream-hub/internal/db"
 	"stream-hub/internal/httprouter"
@@ -55,6 +56,7 @@ type modules struct {
 	hub       *stream.Hub
 	metrics   *metrics.Service
 	media     *media.Handler
+	camera    *camera.Handler
 	stream    *stream.Handler
 	metricsH  *metrics.Handler
 	systemCfg *systemconfig.Handler
@@ -144,6 +146,13 @@ func buildModules(cfg config.Config, d *dataLayer) *modules {
 		mediaStore = media.NewMemStore()
 	}
 
+	var cameraStore camera.Store
+	if d.sqldb != nil {
+		cameraStore = camera.NewDBStore(d.sqldb, d.dialect)
+	} else {
+		cameraStore = camera.NewMemStore()
+	}
+
 	var configStore systemconfig.Store
 	if d.sqldb != nil {
 		configStore = systemconfig.NewDBStore(d.sqldb, d.dialect)
@@ -161,6 +170,7 @@ func buildModules(cfg config.Config, d *dataLayer) *modules {
 		hub:       hub,
 		metrics:   metricsSvc,
 		media:     media.NewHandler(media.NewService(mediaStore, hub.Publisher())),
+		camera:    camera.NewHandler(camera.NewService(cameraStore)),
 		stream:    stream.NewHandler(hub),
 		metricsH:  metrics.NewHandler(metricsSvc),
 		systemCfg: systemconfig.NewHandler(systemconfig.NewService(configStore, sysInfo), uploads),
@@ -196,6 +206,7 @@ func buildHandler(cfg config.Config, d *dataLayer, m *modules) http.Handler {
 
 	return middleware.Chain(mws...)(httprouter.New(httprouter.Deps{
 		Media:        m.media,
+		Camera:       m.camera,
 		Stream:       m.stream,
 		Authn:        d.authn,
 		Admin:        d.admin,

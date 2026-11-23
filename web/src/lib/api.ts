@@ -161,6 +161,11 @@ export type AdminRolePage = Schemas['PageAdminRole'];
 /** 频道列表分页载荷。 */
 export type ChannelPage = Schemas['PageChannel'];
 
+/** 摄像机（设备管理）：列表/详情不含密码，输入可带密码。 */
+export type Camera = Schemas['Camera'];
+export type CameraInput = Schemas['CameraInput'];
+export type CameraPage = Schemas['PageCamera'];
+
 /** 系统配置：可改字段落库、只读元数据由后端启动时采集一次。 */
 export type SystemConfig = Schemas['Config'];
 /** 系统配置里允许修改的字段子集。 */
@@ -208,6 +213,34 @@ export const api = {
     request<{ deleted: number }>(`/api/v1/channels/${id}`, {
       method: 'DELETE',
     }),
+
+  // ---- 设备管理 / 摄像机（真接口 /api/v1/cameras）----
+  listCameras: (
+    params: {
+      page?: number;
+      pageSize?: number;
+      keyword?: string;
+      enabled?: boolean;
+    } = {},
+  ) => {
+    const q = new URLSearchParams({
+      page: String(params.page ?? 1),
+      page_size: String(params.pageSize ?? 20),
+    });
+    if (params.keyword) q.set('keyword', params.keyword);
+    if (params.enabled !== undefined) q.set('enabled', String(params.enabled));
+    return request<CameraPage>(`/api/v1/cameras?${q}`);
+  },
+  getCamera: (id: number) => request<Camera>(`/api/v1/cameras/${id}`),
+  createCamera: (input: CameraInput) =>
+    request<Camera>('/api/v1/cameras', { method: 'POST', body: json(input) }),
+  updateCamera: (id: number, input: CameraInput) =>
+    request<Camera>(`/api/v1/cameras/${id}`, {
+      method: 'PUT',
+      body: json(input),
+    }),
+  deleteCamera: (id: number) =>
+    request<{ deleted: number }>(`/api/v1/cameras/${id}`, { method: 'DELETE' }),
 
   publishEvent: (channel: string, type: string, data: unknown) =>
     request<{ id: string; channel: string }>(

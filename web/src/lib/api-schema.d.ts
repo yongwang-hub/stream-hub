@@ -4,6 +4,43 @@
  */
 
 export interface paths {
+    "/cameras": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 摄像机列表 */
+        get: operations["list-cameras"];
+        put?: never;
+        /** 新建摄像机 */
+        post: operations["create-camera"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cameras/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 摄像机详情 */
+        get: operations["get-camera"];
+        /** 修改摄像机（局部更新） */
+        put: operations["update-camera"];
+        post?: never;
+        /** 删除摄像机 */
+        delete: operations["delete-camera"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/channels": {
         parameters: {
             query?: never;
@@ -286,6 +323,26 @@ export interface components {
             role_ids?: number[] | null;
             username?: string;
         };
+        Camera: {
+            created_at: string;
+            enabled: boolean;
+            /** Format: int64 */
+            id: number;
+            name: string;
+            rtsp_url: string;
+            updated_at: string;
+        };
+        CameraInput: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/CameraInput.json
+             */
+            readonly $schema?: string;
+            enabled?: boolean;
+            name?: string;
+            rtsp_url?: string;
+        };
         Channel: {
             created_at: string;
             /** Format: int64 */
@@ -327,6 +384,10 @@ export interface components {
             warning_text: string;
             watermark: boolean;
         };
+        DeleteResult: {
+            /** Format: int64 */
+            deleted: number;
+        };
         EnvelopeAdminDeleteResult: {
             /**
              * Format: uri
@@ -361,6 +422,18 @@ export interface components {
             /** Format: int64 */
             code: number;
             data?: components["schemas"]["AdminUser"];
+            msg: string;
+        };
+        EnvelopeCamera: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/EnvelopeCamera.json
+             */
+            readonly $schema?: string;
+            /** Format: int64 */
+            code: number;
+            data?: components["schemas"]["Camera"];
             msg: string;
         };
         EnvelopeChannel: {
@@ -399,6 +472,18 @@ export interface components {
             data?: components["schemas"]["Config"];
             msg: string;
         };
+        EnvelopeDeleteResult: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/EnvelopeDeleteResult.json
+             */
+            readonly $schema?: string;
+            /** Format: int64 */
+            code: number;
+            data?: components["schemas"]["DeleteResult"];
+            msg: string;
+        };
         EnvelopePageAdminRole: {
             /**
              * Format: uri
@@ -421,6 +506,18 @@ export interface components {
             /** Format: int64 */
             code: number;
             data?: components["schemas"]["PageAdminUser"];
+            msg: string;
+        };
+        EnvelopePageCamera: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/EnvelopePageCamera.json
+             */
+            readonly $schema?: string;
+            /** Format: int64 */
+            code: number;
+            data?: components["schemas"]["PageCamera"];
             msg: string;
         };
         EnvelopePageChannel: {
@@ -560,6 +657,15 @@ export interface components {
             /** Format: int64 */
             total: number;
         };
+        PageCamera: {
+            items: components["schemas"]["Camera"][] | null;
+            /** Format: int64 */
+            page: number;
+            /** Format: int64 */
+            page_size: number;
+            /** Format: int64 */
+            total: number;
+        };
         PageChannel: {
             items: components["schemas"]["Channel"][] | null;
             /** Format: int64 */
@@ -665,6 +771,177 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    "list-cameras": {
+        parameters: {
+            query?: {
+                /** @description 页码，从 1 开始 */
+                page?: number;
+                /** @description 每页条数（1-100） */
+                page_size?: number;
+                /** @description 设备名称 / RTSP 流地址关键字 */
+                keyword?: string;
+                /** @description 启用状态（true/false） */
+                enabled?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePageCamera"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-camera": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CameraInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCamera"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-camera": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 摄像机 ID */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCamera"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-camera": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 摄像机 ID */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CameraInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCamera"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "delete-camera": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 摄像机 ID */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeDeleteResult"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "list-channels": {
         parameters: {
             query?: {

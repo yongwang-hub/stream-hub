@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"stream-hub/internal/camera"
 	"stream-hub/internal/httpx"
 	"stream-hub/internal/identity"
 	"stream-hub/internal/media"
@@ -25,6 +26,7 @@ type Deps struct {
 	Authn        *auth.Authenticator
 	Admin        *identity.AdminHandler
 	Media        *media.Handler
+	Camera       *camera.Handler
 	Stream       *stream.Handler
 	Metrics      *metrics.Handler
 	SystemConfig *systemconfig.Handler
@@ -69,6 +71,9 @@ func New(d Deps) http.Handler {
 	}
 	if d.Media != nil {
 		d.Media.RegisterHuma(humaAPI)
+	}
+	if d.Camera != nil {
+		d.Camera.RegisterHuma(humaAPI)
 	}
 	if d.Metrics != nil {
 		d.Metrics.RegisterHuma(humaAPI)

@@ -1,6 +1,6 @@
 # stream-hub
 
-流媒体分发平台的 Go 后端。**阶段 1 已完成**：流式通路、SSE 实时分发、频道 CRUD、CORS、健康检查、鉴权加固（JWT + RBAC + 账号/角色管理）、系统配置（含图片上传）、长连接适配与工程化全部落地；前端 Svelte 5 骨架已对齐全部接口。
+流媒体分发平台的 Go 后端。**阶段 1 已完成**：流式通路、SSE 实时分发、频道 CRUD、设备管理（RTSP 摄像机 CRUD）、CORS、健康检查、鉴权加固（JWT + RBAC + 账号/角色管理）、系统配置（含图片上传）、长连接适配与工程化全部落地；前端 Svelte 5 骨架已对齐全部接口。
 
 > 不抽公共库、不跨 module 引用、不做 go.work 编排。**宗旨：性能优先**，任何新增能力先问对热路径的开销。
 
@@ -204,6 +204,7 @@ stream-hub/
 - 选型：**Svelte 5 + Vite + TypeScript** 纯 SPA（最轻量/最现代/运行时开销最低），备选 SolidJS；pnpm 10 + Biome + Vitest，不用 SvelteKit（无需 SSR）、不用 cargo（那是 Rust 生态）。
 - [x] 工程配置、`vite.config.ts` 代理、`api.ts` 信封客户端、`sse.ts` 事件流客户端（含单元测试）
 - [x] 登录 / 首登强制改密页、频道列表（CRUD + 状态切换）、实时事件面板、probe 按钮、连接状态灯、监控、用户 / 角色管理、系统配置页
+- [x] 设备管理 → 摄像机管理（仅设备名称 + RTSP 流地址 + 启用三项，增删改查、搜索、分页、启停开关）
 - [x] `pnpm build / check / lint / test` 全绿，前后端联调（含 SSE 经 Vite 代理透传）通过
 - 后续完善：播放器（`hls.js` 懒加载）、指标面板、路由拆分、多标签页共享单条 SSE（`BroadcastChannel`）
 - 只依赖本文档列出的 API 契约，与后端阶段 3 并行推进。
@@ -219,7 +220,7 @@ stream-hub/
 
 ## 前后端接口契约
 
-**列表分页**：`GET /api/v1/channels`、`/users`、`/roles` 接受 `page`（从 1 开始，默认 1）与 `page_size`（默认 20，最大 100），响应 `data` 为 `{items, total, page, page_size}`。参数由 Huma 声明并写入 OpenAPI，前端类型随之派生。用户/角色页的搜索仅对当前页过滤。
+**列表分页**：`GET /api/v1/channels`、`/users`、`/roles`、`/cameras` 接受 `page`（从 1 开始，默认 1）与 `page_size`（默认 20，最大 100），响应 `data` 为 `{items, total, page, page_size}`。参数由 Huma 声明并写入 OpenAPI，前端类型随之派生。用户/角色页的搜索仅对当前页过滤。
 
 | 方法 + 路径 | 鉴权 | 说明 |
 |---|---|---|
@@ -240,6 +241,11 @@ stream-hub/
 | `GET /ping` | 公开 | 存活性探测 |
 | `GET /healthz` | 公开 | liveness，不查依赖 |
 | `GET /readyz` | 公开 | readiness，失败返回 503 + `code=90009` |
+| `GET /api/v1/cameras` | 登录态 | 摄像机列表（分页；`keyword` / `enabled` 过滤） |
+| `POST /api/v1/cameras` | `camera:manage` | 新建摄像机（设备名称 + `rtsp_url`，默认启用） |
+| `GET /api/v1/cameras/{id}` | 登录态 | 摄像机详情 |
+| `PUT /api/v1/cameras/{id}` | `camera:manage` | 修改摄像机（局部更新） |
+| `DELETE /api/v1/cameras/{id}` | `camera:manage` | 删除摄像机 |
 | `GET /api/v1/channels` | 登录态 | 频道列表（分页） |
 | `POST /api/v1/channels` | `channel:manage` | `{slug,name,source_url}` → 频道 |
 | `GET /api/v1/channels/{id}` | 登录态 | 单频道 |

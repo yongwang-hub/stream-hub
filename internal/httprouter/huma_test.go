@@ -6,10 +6,12 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"stream-hub/internal/camera"
 	"stream-hub/internal/db"
 	"stream-hub/internal/identity"
 	"stream-hub/internal/media"
@@ -36,13 +38,15 @@ func newTestDB(t *testing.T) (*sql.DB, db.Dialect) {
 	return dbs, d
 }
 
-type fakeAccountStore struct{}
+type fakeAccountStore struct {
+	permissions map[string]bool
+}
 
 func (fakeAccountStore) FindForLogin(context.Context, string) (*auth.LoginAccount, error) {
 	return nil, auth.ErrAccountNotFound
 }
-func (fakeAccountStore) Authorize(context.Context, int) (*auth.AuthInfo, error) {
-	return &auth.AuthInfo{Enabled: true}, nil
+func (f fakeAccountStore) Authorize(context.Context, int) (*auth.AuthInfo, error) {
+	return &auth.AuthInfo{Enabled: true, Permissions: f.permissions}, nil
 }
 func (fakeAccountStore) ChangePassword(context.Context, int, string, string) error { return nil }
 
@@ -86,6 +90,7 @@ func TestHumaSpecCoversAllOperations(t *testing.T) {
 		Authn:        authn,
 		Admin:        identity.NewAdminHandler(identity.NewAdminRepo(sqldb, dialect)),
 		Media:        media.NewHandler(media.NewService(media.NewMemStore(), nil)),
+		Camera:       camera.NewHandler(camera.NewService(camera.NewMemStore())),
 		Metrics:      metrics.NewHandler(metrics.NewService(metrics.NewCollector(), nil, time.Second, 10)),
 		SystemConfig: systemconfig.NewHandler(svc, nil),
 		Stream:       stream.NewHandler(stream.NewHub(0)),
@@ -98,6 +103,7 @@ func TestHumaSpecCoversAllOperations(t *testing.T) {
 		"get-system-config", "update-system-config", "upload-system-image",
 		"login", "change-password",
 		"list-channels", "create-channel", "update-channel", "delete-channel",
+		"list-cameras", "get-camera", "create-camera", "update-camera", "delete-camera",
 		"get-metrics-snapshot", "publish-event",
 	} {
 		if !strings.Contains(body, op) {
@@ -154,6 +160,7 @@ func TestHumaPathsNotDoublePrefixed(t *testing.T) {
 	svc := systemconfig.NewService(systemconfig.NewMemStore(), info)
 	h := New(Deps{
 		Media:        media.NewHandler(media.NewService(media.NewMemStore(), nil)),
+		Camera:       camera.NewHandler(camera.NewService(camera.NewMemStore())),
 		Metrics:      metrics.NewHandler(metrics.NewService(metrics.NewCollector(), nil, time.Second, 10)),
 		SystemConfig: systemconfig.NewHandler(svc, nil),
 		Stream:       stream.NewHandler(stream.NewHub(0)),
@@ -180,6 +187,7 @@ func TestHumaRoutesReachable(t *testing.T) {
 	svc := systemconfig.NewService(systemconfig.NewMemStore(), info)
 	h := New(Deps{
 		Media:        media.NewHandler(media.NewService(media.NewMemStore(), nil)),
+		Camera:       camera.NewHandler(camera.NewService(camera.NewMemStore())),
 		Metrics:      metrics.NewHandler(metrics.NewService(metrics.NewCollector(), nil, time.Second, 10)),
 		SystemConfig: systemconfig.NewHandler(svc, nil),
 		Stream:       stream.NewHandler(stream.NewHub(0)),
@@ -230,6 +238,95 @@ func TestHumaListPaginationEnvelope(t *testing.T) {
 	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/v1/channels?page=0", nil))
 	if w.Code != http.StatusUnprocessableEntity {
 		t.Errorf("page=0 should be rejected by Huma validation, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestHumaAuthorizedWriteGetsClaims(t *testing.T) {
+	// 回归：Huma 的权限关卡曾包在认证关卡外层，读不到 claims 而误报 401。
+	authn := auth.New("test-secret", time.Hour,
+		fakeAccountStore{permissions: map[string]bool{auth.PermCameraManage: true}})
+	token, err := authn.Issue("1", false)
+	if err != nil {
+		t.Fatalf("Issue: %v", err)
+	}
+	h := New(Deps{
+		Authn:  authn,
+		Camera: camera.NewHandler(camera.NewService(camera.NewMemStore())),
+	})
+	r := httptest.NewRequest(http.MethodPost, "/api/v1/cameras",
+		strings.NewReader(`{"name":"Front","rtsp_url":"rtsp://192.168.1.64/live"}`))
+	r.Header.Set("Content-Type", "application/json")
+	r.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	if w.Code != http.StatusOK {
+		t.Fatalf("authorized write: status=%d body=%s", w.Code, w.Body.String())
+	}
+}
+
+func TestHumaCameraCRUD(t *testing.T) {
+	h := New(Deps{Camera: camera.NewHandler(camera.NewService(camera.NewMemStore()))})
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodPost, "/api/v1/cameras",
+		strings.NewReader(`{"name":"Front","rtsp_url":"rtsp://192.168.1.64/live"}`))
+	r.Header.Set("Content-Type", "application/json")
+	h.ServeHTTP(w, r)
+	if w.Code != http.StatusOK {
+		t.Fatalf("create camera: status=%d body=%s", w.Code, w.Body.String())
+	}
+	var created struct {
+		Data struct {
+			ID      int64  `json:"id"`
+			Name    string `json:"name"`
+			RTSPURL string `json:"rtsp_url"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &created); err != nil {
+		t.Fatalf("decode create: %v", err)
+	}
+	if created.Data.ID == 0 || created.Data.Name != "Front" || created.Data.RTSPURL != "rtsp://192.168.1.64/live" {
+		t.Fatalf("unexpected create result: %+v", created.Data)
+	}
+
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/v1/cameras?page=1&page_size=10&keyword=Front", nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("list cameras: status=%d body=%s", w.Code, w.Body.String())
+	}
+	var listed struct {
+		Data struct {
+			Items []struct {
+				Name string `json:"name"`
+			} `json:"items"`
+			Total int64 `json:"total"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &listed); err != nil {
+		t.Fatalf("decode list: %v", err)
+	}
+	if listed.Data.Total != 1 || len(listed.Data.Items) != 1 || listed.Data.Items[0].Name != "Front" {
+		t.Errorf("unexpected list: %+v", listed.Data)
+	}
+
+	id := strconv.FormatInt(created.Data.ID, 10)
+	w = httptest.NewRecorder()
+	r = httptest.NewRequest(http.MethodPut, "/api/v1/cameras/"+id, strings.NewReader(`{"name":"Front-2"}`))
+	r.Header.Set("Content-Type", "application/json")
+	h.ServeHTTP(w, r)
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"name":"Front-2"`) {
+		t.Errorf("update camera: status=%d body=%s", w.Code, w.Body.String())
+	}
+
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodDelete, "/api/v1/cameras/"+id, nil))
+	if w.Code != http.StatusOK {
+		t.Errorf("delete camera: status=%d body=%s", w.Code, w.Body.String())
+	}
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/v1/cameras", nil))
+	if !strings.Contains(w.Body.String(), `"total":0`) {
+		t.Errorf("list after delete should be empty: %s", w.Body.String())
 	}
 }
 
