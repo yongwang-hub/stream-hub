@@ -7,10 +7,15 @@ type Schemas = components['schemas'];
 export type ChannelStatus = 'idle' | 'live' | 'error' | 'stopped';
 
 // 状态在 schema 里是 string，这里收窄回状态机字面量，保留前端强类型。
-export type Channel = Omit<Schemas['Channel'], 'status'> & { status: ChannelStatus };
+export type Channel = Omit<Schemas['Channel'], 'status'> & {
+  status: ChannelStatus;
+};
 
 // 创建频道只需要这三个字段（status 由后端状态机决定）。
-export type ChannelInput = Pick<Schemas['ChannelRequest'], 'slug' | 'name' | 'source_url'>;
+export type ChannelInput = Pick<
+  Schemas['ChannelRequest'],
+  'slug' | 'name' | 'source_url'
+>;
 
 // 登录与改密返回同一结构（改密后 must_change 恒为 false）。
 export type TokenResult = Schemas['TokenResult'];

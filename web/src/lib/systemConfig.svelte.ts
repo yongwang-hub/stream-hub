@@ -9,7 +9,8 @@ const PLACEHOLDER: SystemConfig = {
   product_version: 'V1.0.0',
   login_bg: '',
   product_icon: '',
-  warning_text: '本系统视频图像严禁拍摄、截屏、录像，禁止任何形式的信息外传，违者依法追责！',
+  warning_text:
+    '本系统视频图像严禁拍摄、截屏、录像，禁止任何形式的信息外传，违者依法追责！',
   watermark: false,
   license_days: 1090,
   machine_code: '',

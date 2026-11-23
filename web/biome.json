@@ -1,6 +1,13 @@
 {
   "files": {
-    "includes": ["src/**/*.ts", "vite.config.ts", "svelte.config.js", "*.json"]
+    "includes": [
+      "src/**/*.ts",
+      "vite.config.ts",
+      "svelte.config.js",
+      "*.json",
+      "!openapi.json",
+      "!src/lib/api-schema.d.ts"
+    ]
   },
   "formatter": {
     "enabled": true,

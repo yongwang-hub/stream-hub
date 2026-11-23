@@ -119,7 +119,10 @@ export async function request<T>(
   }
   if (!response.ok) {
     if (isProblem(body)) {
-      throw new ApiError(body.status || response.status, translate(body.detail || body.title || `HTTP ${response.status}`));
+      throw new ApiError(
+        body.status || response.status,
+        translate(body.detail || body.title || `HTTP ${response.status}`),
+      );
     }
     const env = body as Envelope<T>;
     throw new ApiError(
@@ -255,7 +258,10 @@ export async function uploadImage(file: File): Promise<string> {
       body: form,
     });
   } catch (err) {
-    throw new ApiError(-1, `网络错误：${err instanceof Error ? err.message : String(err)}`);
+    throw new ApiError(
+      -1,
+      `网络错误：${err instanceof Error ? err.message : String(err)}`,
+    );
   }
   if (response.status === 401) {
     clearToken();
@@ -266,18 +272,35 @@ export async function uploadImage(file: File): Promise<string> {
   try {
     body = (await response.json()) as Envelope<{ url: string }> | ProblemDetail;
   } catch {
-    throw new ApiError(response.status, `响应不是 JSON（HTTP ${response.status}）`);
+    throw new ApiError(
+      response.status,
+      `响应不是 JSON（HTTP ${response.status}）`,
+    );
   }
   if (!response.ok) {
     if (isProblem(body)) {
-      throw new ApiError(body.status || response.status, translate(body.detail || body.title || `上传失败（HTTP ${response.status}）`));
+      throw new ApiError(
+        body.status || response.status,
+        translate(
+          body.detail || body.title || `上传失败（HTTP ${response.status}）`,
+        ),
+      );
     }
     const env = body as Envelope<{ url: string }>;
-    throw new ApiError(env.code || response.status, env.msg || `上传失败（HTTP ${response.status}）`);
+    throw new ApiError(
+      env.code || response.status,
+      env.msg || `上传失败（HTTP ${response.status}）`,
+    );
   }
   const env = body as Envelope<{ url: string }>;
   if (env.code !== CODE_OK) {
-    throw new ApiError(env.code, env.msg || `上传失败（HTTP ${response.status}）`);
+    throw new ApiError(
+      env.code,
+      env.msg || `上传失败（HTTP ${response.status}）`,
+    );
   }
-  return env.data!.url;
+  if (!env.data) {
+    throw new ApiError(env.code, '上传成功但响应缺少文件地址');
+  }
+  return env.data.url;
 }

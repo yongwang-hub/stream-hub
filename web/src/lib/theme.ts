@@ -63,7 +63,8 @@ export function toggleThemeWithCircularReveal(event: MouseEvent): Theme {
   const ratioX = (100 * x) / window.innerWidth;
   const ratioY = (100 * y) / window.innerHeight;
   const ratioR =
-    (100 * endRadius) / (Math.hypot(window.innerWidth, window.innerHeight) / Math.SQRT2);
+    (100 * endRadius) /
+    (Math.hypot(window.innerWidth, window.innerHeight) / Math.SQRT2);
 
   transition.ready.then(() => {
     const clipPath = [
@@ -76,7 +77,9 @@ export function toggleThemeWithCircularReveal(event: MouseEvent): Theme {
       {
         duration: 400,
         easing: 'ease-in',
-        pseudoElement: toDark ? '::view-transition-old(root)' : '::view-transition-new(root)',
+        pseudoElement: toDark
+          ? '::view-transition-old(root)'
+          : '::view-transition-new(root)',
       },
     );
   });

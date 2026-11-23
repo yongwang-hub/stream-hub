@@ -38,5 +38,32 @@ jobs:
         run: pnpm -C web install --frozen-lockfile
       - name: svelte-check
         run: pnpm -C web check
+      - name: lint
+        run: pnpm -C web lint
+      - name: test
+        run: pnpm -C web test
       - name: build
         run: pnpm -C web build
+
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+          cache: true
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - name: install
+        run: pnpm -C web install --frozen-lockfile
+      - name: regenerate openapi spec and types
+        run: pnpm -C web openapi
+      - name: fail if generated artifacts are stale
+        run: git diff --exit-code -- web/openapi.json web/src/lib/api-schema.d.ts
