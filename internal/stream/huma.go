@@ -36,7 +36,7 @@ type publishOutput struct {
 func (h *Handler) RegisterHuma(api huma.API) {
 	huma.Register(api, huma.Operation{
 		OperationID: "publish-event", Method: http.MethodPost,
-		Path:    "/api/v1/stream/{channel}/events",
+		Path:    "/stream/{channel}/events",
 		Summary: "注入事件", Description: "向指定频道推送一条事件（联调/运维用）。",
 		Tags: []string{"Stream"}, Security: platformhttp.BearerSecurity(),
 		Metadata: map[string]any{"permission": auth.PermStreamPublish},

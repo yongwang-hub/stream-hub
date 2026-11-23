@@ -53,7 +53,7 @@ func (h *Handler) RegisterHuma(api huma.API) {
 		Summary:     "获取系统配置",
 		Description: "登录页渲染所需的品牌信息与只读设备信息；公开接口。",
 		Tags:        []string{"SystemConfig"},
-		Security:    []map[string][]string{{}},
+		Security:    platformhttp.PublicSecurity(),
 	}, func(ctx context.Context, _ *getConfigInput) (*configOutput, error) {
 		cfg, err := h.svc.Get(ctx)
 		if err != nil {

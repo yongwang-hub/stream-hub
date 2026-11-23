@@ -25,7 +25,7 @@ type snapshotOutput struct {
 // RegisterHuma 用 code-first 声明指标快照接口（登录即可查看）。
 func (h *Handler) RegisterHuma(api huma.API) {
 	huma.Register(api, huma.Operation{
-		OperationID: "get-metrics-snapshot", Method: http.MethodGet, Path: "/api/v1/metrics",
+		OperationID: "get-metrics-snapshot", Method: http.MethodGet, Path: "/metrics",
 		Summary: "指标快照", Description: "首屏快照；实时增量走 SSE 频道 system-metrics。",
 		Tags: []string{"Metrics"}, Security: platformhttp.BearerSecurity(),
 	}, func(ctx context.Context, _ *snapshotInput) (*snapshotOutput, error) {

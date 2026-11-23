@@ -83,7 +83,7 @@ func (h *AdminHandler) RegisterHuma(api huma.API) {
 	roleTag := []string{"Roles"}
 
 	huma.Register(api, huma.Operation{
-		OperationID: "list-users", Method: http.MethodGet, Path: "/api/v1/users",
+		OperationID: "list-users", Method: http.MethodGet, Path: "/users",
 		Summary: "用户列表", Tags: userTag, Security: platformhttp.BearerSecurity(),
 		Metadata: map[string]any{"permission": auth.PermUserList},
 	}, func(ctx context.Context, _ *listUsersInput) (*usersOutput, error) {
@@ -95,7 +95,7 @@ func (h *AdminHandler) RegisterHuma(api huma.API) {
 	})
 
 	huma.Register(api, huma.Operation{
-		OperationID: "create-user", Method: http.MethodPost, Path: "/api/v1/users",
+		OperationID: "create-user", Method: http.MethodPost, Path: "/users",
 		Summary: "新建用户", Tags: userTag, Security: platformhttp.BearerSecurity(),
 		Metadata: map[string]any{"permission": auth.PermUserCreate},
 	}, func(ctx context.Context, in *createUserInput) (*userOutput, error) {
@@ -107,7 +107,7 @@ func (h *AdminHandler) RegisterHuma(api huma.API) {
 	})
 
 	huma.Register(api, huma.Operation{
-		OperationID: "update-user", Method: http.MethodPut, Path: "/api/v1/users/{id}",
+		OperationID: "update-user", Method: http.MethodPut, Path: "/users/{id}",
 		Summary: "修改用户", Tags: userTag, Security: platformhttp.BearerSecurity(),
 		Metadata: map[string]any{"permission": auth.PermUserUpdate},
 	}, func(ctx context.Context, in *updateUserInput) (*userOutput, error) {
@@ -119,7 +119,7 @@ func (h *AdminHandler) RegisterHuma(api huma.API) {
 	})
 
 	huma.Register(api, huma.Operation{
-		OperationID: "delete-user", Method: http.MethodDelete, Path: "/api/v1/users/{id}",
+		OperationID: "delete-user", Method: http.MethodDelete, Path: "/users/{id}",
 		Summary: "删除用户", Tags: userTag, Security: platformhttp.BearerSecurity(),
 		Metadata: map[string]any{"permission": auth.PermUserDelete},
 	}, func(ctx context.Context, in *deleteUserInput) (*deleteOutput, error) {
@@ -132,7 +132,7 @@ func (h *AdminHandler) RegisterHuma(api huma.API) {
 	})
 
 	huma.Register(api, huma.Operation{
-		OperationID: "list-roles", Method: http.MethodGet, Path: "/api/v1/roles",
+		OperationID: "list-roles", Method: http.MethodGet, Path: "/roles",
 		Summary: "角色列表", Tags: roleTag, Security: platformhttp.BearerSecurity(),
 		Metadata: map[string]any{"permission": auth.PermRoleManage},
 	}, func(ctx context.Context, _ *listRolesInput) (*rolesOutput, error) {
@@ -144,7 +144,7 @@ func (h *AdminHandler) RegisterHuma(api huma.API) {
 	})
 
 	huma.Register(api, huma.Operation{
-		OperationID: "create-role", Method: http.MethodPost, Path: "/api/v1/roles",
+		OperationID: "create-role", Method: http.MethodPost, Path: "/roles",
 		Summary: "新建角色", Tags: roleTag, Security: platformhttp.BearerSecurity(),
 		Metadata: map[string]any{"permission": auth.PermRoleManage},
 	}, func(ctx context.Context, in *createRoleInput) (*roleOutput, error) {
@@ -156,7 +156,7 @@ func (h *AdminHandler) RegisterHuma(api huma.API) {
 	})
 
 	huma.Register(api, huma.Operation{
-		OperationID: "update-role", Method: http.MethodPut, Path: "/api/v1/roles/{id}",
+		OperationID: "update-role", Method: http.MethodPut, Path: "/roles/{id}",
 		Summary: "修改角色", Tags: roleTag, Security: platformhttp.BearerSecurity(),
 		Metadata: map[string]any{"permission": auth.PermRoleManage},
 	}, func(ctx context.Context, in *updateRoleInput) (*roleOutput, error) {
@@ -168,7 +168,7 @@ func (h *AdminHandler) RegisterHuma(api huma.API) {
 	})
 
 	huma.Register(api, huma.Operation{
-		OperationID: "delete-role", Method: http.MethodDelete, Path: "/api/v1/roles/{id}",
+		OperationID: "delete-role", Method: http.MethodDelete, Path: "/roles/{id}",
 		Summary: "删除角色", Tags: roleTag, Security: platformhttp.BearerSecurity(),
 		Metadata: map[string]any{"permission": auth.PermRoleManage},
 	}, func(ctx context.Context, in *deleteRoleInput) (*deleteOutput, error) {

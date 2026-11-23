@@ -62,7 +62,7 @@ func (h *Handler) RegisterHuma(api huma.API) {
 	tag := []string{"Channels"}
 
 	huma.Register(api, huma.Operation{
-		OperationID: "list-channels", Method: http.MethodGet, Path: "/api/v1/channels",
+		OperationID: "list-channels", Method: http.MethodGet, Path: "/channels",
 		Summary: "频道列表", Tags: tag, Security: platformhttp.BearerSecurity(),
 	}, func(ctx context.Context, _ *listInput) (*channelsOutput, error) {
 		list, err := h.svc.List(ctx)
@@ -73,7 +73,7 @@ func (h *Handler) RegisterHuma(api huma.API) {
 	})
 
 	huma.Register(api, huma.Operation{
-		OperationID: "get-channel", Method: http.MethodGet, Path: "/api/v1/channels/{id}",
+		OperationID: "get-channel", Method: http.MethodGet, Path: "/channels/{id}",
 		Summary: "频道详情", Tags: tag, Security: platformhttp.BearerSecurity(),
 	}, func(ctx context.Context, in *getInput) (*channelOutput, error) {
 		c, err := h.svc.Get(ctx, in.ID)
@@ -85,7 +85,7 @@ func (h *Handler) RegisterHuma(api huma.API) {
 	})
 
 	huma.Register(api, huma.Operation{
-		OperationID: "create-channel", Method: http.MethodPost, Path: "/api/v1/channels",
+		OperationID: "create-channel", Method: http.MethodPost, Path: "/channels",
 		Summary: "新建频道", Tags: tag, Security: platformhttp.BearerSecurity(),
 		Metadata: map[string]any{"permission": auth.PermChannelManage},
 	}, func(ctx context.Context, in *createInput) (*channelOutput, error) {
@@ -98,7 +98,7 @@ func (h *Handler) RegisterHuma(api huma.API) {
 	})
 
 	huma.Register(api, huma.Operation{
-		OperationID: "update-channel", Method: http.MethodPut, Path: "/api/v1/channels/{id}",
+		OperationID: "update-channel", Method: http.MethodPut, Path: "/channels/{id}",
 		Summary: "修改频道（局部更新）", Tags: tag, Security: platformhttp.BearerSecurity(),
 		Metadata: map[string]any{"permission": auth.PermChannelManage},
 	}, func(ctx context.Context, in *updateInput) (*channelOutput, error) {
@@ -111,7 +111,7 @@ func (h *Handler) RegisterHuma(api huma.API) {
 	})
 
 	huma.Register(api, huma.Operation{
-		OperationID: "delete-channel", Method: http.MethodDelete, Path: "/api/v1/channels/{id}",
+		OperationID: "delete-channel", Method: http.MethodDelete, Path: "/channels/{id}",
 		Summary: "删除频道", Tags: tag, Security: platformhttp.BearerSecurity(),
 		Metadata: map[string]any{"permission": auth.PermChannelManage},
 	}, func(ctx context.Context, in *deleteInput) (*deleteOutput, error) {

@@ -3,6 +3,7 @@ package httprouter
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -144,6 +145,70 @@ func TestSSEStillBypassesHuma(t *testing.T) {
 	}
 	if ct := w.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/event-stream") {
 		t.Fatalf("SSE Content-Type = %q, want text/event-stream", ct)
+	}
+}
+
+func TestHumaPathsNotDoublePrefixed(t *testing.T) {
+	// servers 已声明 /api/v1，paths 里不能再出现 /api/v1，否则实际 URL 会变成 /api/v1/api/v1/...
+	info := systemconfig.NewSystemInfo("V1.0.0", "MODEL-X", "SN-1", 10)
+	svc := systemconfig.NewService(systemconfig.NewMemStore(), info)
+	h := New(Deps{
+		Media:        media.NewHandler(media.NewService(media.NewMemStore(), nil)),
+		Metrics:      metrics.NewHandler(metrics.NewService(metrics.NewCollector(), nil, time.Second, 10)),
+		SystemConfig: systemconfig.NewHandler(svc, nil),
+		Stream:       stream.NewHandler(stream.NewHub(0)),
+	})
+
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/v1/openapi.json", nil))
+	var spec struct {
+		Paths map[string]json.RawMessage `json:"paths"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &spec); err != nil {
+		t.Fatalf("decode spec: %v", err)
+	}
+	for p := range spec.Paths {
+		if strings.HasPrefix(p, "/api/v1/") {
+			t.Errorf("path %q duplicates the /api/v1 server prefix", p)
+		}
+	}
+}
+
+func TestHumaRoutesReachable(t *testing.T) {
+	// 认证关闭时直通；验证实际 URL 可访问（不是 404）。
+	info := systemconfig.NewSystemInfo("V1.0.0", "MODEL-X", "SN-1", 10)
+	svc := systemconfig.NewService(systemconfig.NewMemStore(), info)
+	h := New(Deps{
+		Media:        media.NewHandler(media.NewService(media.NewMemStore(), nil)),
+		Metrics:      metrics.NewHandler(metrics.NewService(metrics.NewCollector(), nil, time.Second, 10)),
+		SystemConfig: systemconfig.NewHandler(svc, nil),
+		Stream:       stream.NewHandler(stream.NewHub(0)),
+	})
+
+	for _, path := range []string{"/api/v1/channels", "/api/v1/metrics", "/api/v1/system-config"} {
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, path, nil))
+		if w.Code == http.StatusNotFound {
+			t.Errorf("GET %s => 404, route not mounted correctly", path)
+		}
+	}
+}
+
+func TestHumaPublicOperationBypassesAuth(t *testing.T) {
+	// 认证开启时，公开接口（GET 系统配置 / 登录）仍不能要求 token。
+	// 回归：OpenAPI 的 security:[{}] 曾被误判为需要认证，导致登录页 401。
+	info := systemconfig.NewSystemInfo("V1.0.0", "MODEL-X", "SN-1", 10)
+	svc := systemconfig.NewService(systemconfig.NewMemStore(), info)
+	authn := auth.New("test-secret", 2*time.Hour, fakeAccountStore{})
+	h := New(Deps{
+		Authn:        authn,
+		SystemConfig: systemconfig.NewHandler(svc, nil),
+	})
+
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/v1/system-config", nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("public GET system-config with auth enabled: status=%d body=%s", w.Code, w.Body.String())
 	}
 }
 

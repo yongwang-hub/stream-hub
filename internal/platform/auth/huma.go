@@ -56,7 +56,7 @@ func (a *Authenticator) RegisterHuma(api huma.API) {
 		Summary:     "登录",
 		Description: "用户名密码换取 JWT；首登 must_change=true，前端需引导改密。",
 		Tags:        []string{"Auth"},
-		Security:    []map[string][]string{{}},
+		Security:    platformhttp.PublicSecurity(),
 	}, func(ctx context.Context, in *loginInput) (*tokenOutput, error) {
 		if a.accounts == nil {
 			slog.Default().LogAttrs(ctx, slog.LevelError, "login requested but account store not configured")
