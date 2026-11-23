@@ -4,6 +4,7 @@
   //   xc-side-bar:   220px + 12px×2 = 244px / 菜单项 46px / 文字 14px·500 / 图标 20px / 选中=主色实心
   //   xc-content:    padding 12px / 左上圆角 10px / 上+左边框 / 无阴影
   // 菜单只有系统监控、系统管理两项，切换靠本地 view 状态，不引路由库。
+  import defaultLogo from '../../assets/logo.png';
   import Monitor from './Monitor.svelte';
   import Roles from './Roles.svelte';
   import Users from './Users.svelte';
@@ -94,9 +95,8 @@
       {#if config().product_icon}
         <img src={config().product_icon} alt="产品图标" class="h-[55px] w-[55px] shrink-0 rounded-[12px] object-contain" />
       {:else}
-        <div class="grid h-[55px] w-[55px] shrink-0 place-items-center rounded-[12px] bg-primary text-[24px] font-bold text-primary-foreground">
-          S
-        </div>
+        <!-- 未配置自定义图标时展示内置默认 logo（透明底，直接压在顶栏深色背景上） -->
+        <img src={defaultLogo} alt="产品图标" class="h-[40px] w-auto shrink-0 object-contain" />
       {/if}
       <span
         class="truncate text-[18px] font-medium tracking-[1px] text-white"

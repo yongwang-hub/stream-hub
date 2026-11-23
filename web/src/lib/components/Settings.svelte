@@ -4,6 +4,7 @@
   // 布局照 Vue 的 el-form：label 在左固定宽右对齐、控件在右，两列紧凑排布。
   import { api, uploadImage, type SystemConfigWritable } from '../api';
   import defaultLoginBg from '../../assets/login-bg.webp';
+  import defaultLogo from '../../assets/logo.png';
   import { config, loadConfig, saveConfig } from '../systemConfig.svelte';
   import Button from '../ui/Button.svelte';
   import Icon from '../ui/Icon.svelte';
@@ -180,9 +181,10 @@
                 <Icon name="close" size={12} />
               </button>
             {:else}
-              <span class="flex flex-col items-center gap-1 text-xs">
-                <Icon name="upload" size={22} />
-                上传
+              <!-- 未上传自定义图标时，展示当前生效的内置默认 logo（与登录页/顶栏一致） -->
+              <img src={defaultLogo} alt="默认产品图标" class="h-full w-full object-contain p-2" />
+              <span class="absolute inset-0 grid place-items-center bg-black/45 text-xs text-white opacity-0 transition-opacity hover:opacity-100">
+                <Icon name="upload" size={20} />
               </span>
             {/if}
           </label>

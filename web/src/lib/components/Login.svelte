@@ -1,4 +1,5 @@
 <script lang="ts">
+  import defaultLogo from '../../assets/logo.png';
   import { api } from '../api';
   import { config } from '../systemConfig.svelte';
   import Icon from '../ui/Icon.svelte';
@@ -73,11 +74,8 @@
     {#if config().product_icon}
       <img src={config().product_icon} alt="产品图标" class="h-[78px] w-[78px] shrink-0 rounded-[18px] bg-white/90 object-contain shadow-lg" />
     {:else}
-      <span
-        class="grid h-[78px] w-[78px] shrink-0 place-items-center rounded-[18px] bg-primary text-[32px] font-bold text-primary-foreground shadow-lg"
-      >
-        S
-      </span>
+      <!-- 未配置自定义图标时展示内置默认 logo（透明底，直接压在登录背景上） -->
+      <img src={defaultLogo} alt="产品图标" class="h-[78px] w-auto shrink-0 object-contain" />
     {/if}
     <div class="relative ml-5">
       <span class="absolute -left-[10px] top-1/2 h-[28px] w-[2px] -translate-y-1/2 bg-[#979797]"></span>
