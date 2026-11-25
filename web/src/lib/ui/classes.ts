@@ -1,8 +1,9 @@
 // 统一的表单/表格样式常量：页面用原生标签 + 这些类，避免每个组件重复写 Tailwind 类名。
 // 颜色全部引用 app.css 的语义 token；字号取 app.css @theme 的全局刻度。
 
+// 控件统一用白底 + 浅色描边（照公司 Vue 表单观感）；页面背景是浅灰，白底控件才有边界感。
 export const inputClass =
-  'w-full rounded-lg border border-input bg-background px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground transition-colors focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/20 disabled:cursor-not-allowed disabled:opacity-60';
+  'w-full rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground transition-colors hover:border-ring/40 focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/20 disabled:cursor-not-allowed disabled:opacity-60';
 
 export const labelClass =
   'block text-xs font-medium text-muted-foreground mb-2';

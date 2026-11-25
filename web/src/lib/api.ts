@@ -166,6 +166,10 @@ export type Camera = Schemas['Camera'];
 export type CameraInput = Schemas['CameraInput'];
 export type CameraPage = Schemas['PageCamera'];
 
+/** 实时预览：左侧设备列表（不分页，含停用设备）。 */
+export type PreviewChannel = Schemas['PreviewChannel'];
+export type PreviewChannelList = Schemas['PreviewChannelList'];
+
 /** 系统配置：可改字段落库、只读元数据由后端启动时采集一次。 */
 export type SystemConfig = Schemas['Config'];
 /** 系统配置里允许修改的字段子集。 */
@@ -241,6 +245,12 @@ export const api = {
     }),
   deleteCamera: (id: number) =>
     request<{ deleted: number }>(`/api/v1/cameras/${id}`, { method: 'DELETE' }),
+
+  // ---- 实时预览（/api/v1/preview/cameras，不分页）----
+  previewCameras: (keyword = '') => {
+    const q = keyword ? `?keyword=${encodeURIComponent(keyword)}` : '';
+    return request<PreviewChannelList>(`/api/v1/preview/cameras${q}`);
+  },
 
   publishEvent: (channel: string, type: string, data: unknown) =>
     request<{ id: string; channel: string }>(

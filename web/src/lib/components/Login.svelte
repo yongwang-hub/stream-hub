@@ -2,6 +2,7 @@
   import defaultLogo from '../../assets/logo.png';
   import { api } from '../api';
   import { config } from '../systemConfig.svelte';
+  import { setCurrentUser } from '../session.svelte';
   import Icon from '../ui/Icon.svelte';
   import { toast } from '../ui/toast.svelte';
 
@@ -56,6 +57,7 @@
         localStorage.removeItem(REMEMBER_KEY);
       }
       toast.success('登录成功');
+      setCurrentUser(username); // 水印/顶栏展示当前登录用户名
       onLogin(result.token, result.must_change);
     } catch (err) {
       toast.error(describe(err));

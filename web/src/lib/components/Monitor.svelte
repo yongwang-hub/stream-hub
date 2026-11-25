@@ -65,9 +65,10 @@
   });
 </script>
 
-<div>
+<!-- 页面容器撑满内容区：卡片网格占满剩余高度，而不是在底部留一块灰色空白 -->
+<div class="flex min-h-full flex-1 flex-col">
   {#if !latest}
-    <div class="rounded-xl border border-border bg-card px-6 py-16 text-center">
+    <div class="flex flex-1 flex-col items-center justify-center rounded-xl border border-border bg-card px-6 py-16 text-center">
       <Icon name="monitor" size={32} class="mx-auto text-muted-foreground" />
       <p class="mt-4 text-base font-medium">
         {status === 'connecting' ? '正在连接指标服务…' : '指标采集未连接'}
@@ -75,9 +76,10 @@
       <p class="mt-1 text-sm text-muted-foreground">暂无可用指标数据</p>
     </div>
   {:else}
-    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      <Card title="系统概览" description="CPU / 内存实时占用">
-        <div class="flex items-center justify-around gap-4 pt-1">
+    <!-- auto-rows-fr：两行卡片等分剩余高度，卡片跟着铺满 -->
+    <div class="grid flex-1 auto-rows-fr gap-6 md:grid-cols-2 xl:grid-cols-3">
+      <Card title="系统概览" description="CPU / 内存实时占用" class="flex flex-col" bodyClass="flex flex-1 flex-col">
+        <div class="flex flex-1 items-center justify-around gap-4 pt-1">
           <div class="text-center">
             <div class="mx-auto grid h-24 w-24 place-items-center rounded-full border-[9px] border-primary text-base font-bold">
               {pct(latest.cpu)}
@@ -96,8 +98,10 @@
       <Card
         title="系统负载"
         description={latest.load1 < 0 ? '当前平台不支持负载指标' : '1 / 5 / 15 分钟平均负载'}
+        class="flex flex-col"
+        bodyClass="flex flex-1 flex-col"
       >
-        <div class="flex h-36 items-end gap-3 pt-1">
+        <div class="flex min-h-36 flex-1 items-end gap-3 pt-1">
           {#if latest.load1 >= 0}
             {#each [{ label: '1 分钟', value: latest.load1 }, { label: '5 分钟', value: latest.load5 }, { label: '15 分钟', value: latest.load15 }] as item}
               <div class="flex h-full flex-1 flex-col items-center justify-end gap-2">
@@ -112,8 +116,8 @@
         </div>
       </Card>
 
-      <Card title="CPU 使用" description={`当前 ${pct(latest.cpu)}`}>
-        <svg class="h-32 w-full text-primary" viewBox="0 0 300 110" preserveAspectRatio="none">
+      <Card title="CPU 使用" description={`当前 ${pct(latest.cpu)}`} class="flex flex-col" bodyClass="flex flex-1 flex-col">
+        <svg class="min-h-32 w-full flex-1 text-primary" viewBox="0 0 300 110" preserveAspectRatio="none">
           <polygon points="0,110 {cpuPath} 300,110" fill="currentColor" opacity="0.12" />
           <polyline points={cpuPath} fill="none" stroke="currentColor" stroke-width="2" />
         </svg>
@@ -125,6 +129,8 @@
       <Card
         title="存储使用"
         description={`系统盘 ${pct(latest.disk_percent)} · ${gib(latest.disk_used)} / ${gib(latest.disk_total)}`}
+        class="flex flex-col"
+        bodyClass="flex flex-1 flex-col justify-center"
       >
         <div class="space-y-3.5 pt-1">
           <div class="grid grid-cols-[72px_1fr_52px] items-center gap-3 text-xs">
@@ -151,8 +157,10 @@
       <Card
         title="带宽使用 (Mbps)"
         description={`↓ ${latest.net_rx.toFixed(2)} / ↑ ${latest.net_tx.toFixed(2)}`}
+        class="flex flex-col"
+        bodyClass="flex flex-1 flex-col"
       >
-        <svg class="h-32 w-full text-primary" viewBox="0 0 300 110" preserveAspectRatio="none">
+        <svg class="min-h-32 w-full flex-1 text-primary" viewBox="0 0 300 110" preserveAspectRatio="none">
           <polygon points="0,110 {rxPath} 300,110" fill="currentColor" opacity="0.12" />
           <polyline points={rxPath} fill="none" stroke="currentColor" stroke-width="2" />
           <polyline points={txPath} fill="none" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="4 3" />
@@ -165,8 +173,10 @@
       <Card
         title="内存使用"
         description={`${gib(latest.mem_used)} / ${gib(latest.mem_total)}`}
+        class="flex flex-col"
+        bodyClass="flex flex-1 flex-col"
       >
-        <svg class="h-32 w-full text-primary" viewBox="0 0 300 110" preserveAspectRatio="none">
+        <svg class="min-h-32 w-full flex-1 text-primary" viewBox="0 0 300 110" preserveAspectRatio="none">
           <polygon points="0,110 {memPath} 300,110" fill="currentColor" opacity="0.12" />
           <polyline points={memPath} fill="none" stroke="currentColor" stroke-width="2" />
         </svg>

@@ -138,6 +138,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/preview/cameras": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 实时预览设备列表
+         * @description 实时预览页左侧列表：一次返回全部摄像机（不分页），停用设备也会返回并带 enabled=false。
+         */
+        get: operations["preview-cameras"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/roles": {
         parameters: {
             query?: never;
@@ -532,6 +552,18 @@ export interface components {
             data?: components["schemas"]["PageChannel"];
             msg: string;
         };
+        EnvelopePreviewChannelList: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/EnvelopePreviewChannelList.json
+             */
+            readonly $schema?: string;
+            /** Format: int64 */
+            code: number;
+            data?: components["schemas"]["PreviewChannelList"];
+            msg: string;
+        };
         EnvelopePublishResult: {
             /**
              * Format: uri
@@ -686,6 +718,18 @@ export interface components {
             new_password: string;
             /** @description 当前密码 */
             old_password: string;
+        };
+        PreviewChannel: {
+            enabled: boolean;
+            /** Format: int64 */
+            id: number;
+            name: string;
+            rtsp_url: string;
+        };
+        PreviewChannelList: {
+            items: components["schemas"]["PreviewChannel"][] | null;
+            /** Format: int64 */
+            total: number;
         };
         PublishInputBody: {
             /**
@@ -1191,6 +1235,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EnvelopeSnapshotPayload"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "preview-cameras": {
+        parameters: {
+            query?: {
+                /** @description 设备名称 / RTSP 流地址关键字 */
+                keyword?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePreviewChannelList"];
                 };
             };
             /** @description Error */

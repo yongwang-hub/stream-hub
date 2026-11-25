@@ -6,6 +6,7 @@
   import Toaster from './lib/ui/Toaster.svelte';
   import Watermark from './lib/ui/Watermark.svelte';
   import { config, loadConfig } from './lib/systemConfig.svelte';
+  import { currentUser, setCurrentUser } from './lib/session.svelte';
   import Login from './lib/components/Login.svelte';
   import ChangePassword from './lib/components/ChangePassword.svelte';
   import AdminShell from './lib/components/AdminShell.svelte';
@@ -54,6 +55,7 @@
     clearToken();
     token = null;
     mustChange = false;
+    setCurrentUser('admin');
   }
 </script>
 
@@ -65,11 +67,12 @@
 {#if !token || mustChange}
   <Login onLogin={handleLogin} />
 {:else}
-  <AdminShell onLogout={logout} />
+  <AdminShell onLogout={logout} username={currentUser()} />
+  <!-- 全局水印：只在登录后的后台区域显示（照 Vue 版包在 XcLayout 里的做法），
+       内容和 Vue 版一致（登录用户名 + 当前时间） -->
+  <Watermark username={currentUser()} />
 {/if}
 
 {#if mustChange}
   <ChangePassword mode="force" onDone={handlePasswordChanged} />
 {/if}
-
-<Watermark />

@@ -4,7 +4,7 @@
   import { onMount } from 'svelte';
   import { api } from '../api';
   import type { AdminRole, AdminRoleInput } from '../api';
-  import Icon from '../ui/Icon.svelte';
+  import FilterField from '../ui/FilterField.svelte';
   import Button from '../ui/Button.svelte';
   import Badge from '../ui/Badge.svelte';
   import Modal from '../ui/Modal.svelte';
@@ -113,12 +113,14 @@
 
 <ListPage>
   {#snippet filters()}
-    <div class="relative min-w-[200px] flex-1 md:max-w-xs">
-      <Icon name="search" size={15} class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-      <input class={cn(inputClass, 'pl-9')} placeholder="搜索当前页角色 ID / 名称" bind:value={keyword} />
-    </div>
-    <Button variant="outline" size="sm" icon="refresh" onclick={() => void load()} disabled={loading}>刷新</Button>
-    <Button variant="ghost" size="sm" onclick={() => (keyword = '')}>重置</Button>
+    <FilterField label="关键词">
+      <input class={inputClass} placeholder="角色名称 / ID" bind:value={keyword} />
+    </FilterField>
+  {/snippet}
+
+  {#snippet filterActions()}
+    <Button variant="outline" onclick={() => (keyword = '')}>重置</Button>
+    <Button onclick={() => void load()} disabled={loading}>刷新</Button>
   {/snippet}
 
   {#snippet toolbar()}

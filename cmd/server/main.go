@@ -166,11 +166,13 @@ func buildModules(cfg config.Config, d *dataLayer) *modules {
 	sysInfo := systemconfig.NewSystemInfo(Version, cfg.System.Model, cfg.System.Serial, cfg.System.LicenseDays)
 	uploads := storage.NewLocal(storage.DefaultDir, storage.DefaultURLPath)
 
+	cameraSvc := camera.NewService(cameraStore)
+
 	return &modules{
 		hub:       hub,
 		metrics:   metricsSvc,
 		media:     media.NewHandler(media.NewService(mediaStore, hub.Publisher())),
-		camera:    camera.NewHandler(camera.NewService(cameraStore)),
+		camera:    camera.NewHandler(cameraSvc),
 		stream:    stream.NewHandler(hub),
 		metricsH:  metrics.NewHandler(metricsSvc),
 		systemCfg: systemconfig.NewHandler(systemconfig.NewService(configStore, sysInfo), uploads),

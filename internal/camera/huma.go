@@ -38,6 +38,19 @@ type deleteCameraInput struct {
 	ID int64 `path:"id" doc:"摄像机 ID" minimum:"1"`
 }
 
+type previewCamerasInput struct {
+	Keyword string `query:"keyword" doc:"设备名称 / RTSP 流地址关键字"`
+}
+
+type previewChannelList struct {
+	Items []PreviewChannel `json:"items"`
+	Total int              `json:"total"`
+}
+
+type previewOutput struct {
+	Body httpx.Envelope[previewChannelList] `json:"body"`
+}
+
 type camerasOutput struct {
 	Body httpx.Envelope[httpx.Page[Camera]] `json:"body"`
 }
@@ -102,6 +115,22 @@ func (h *Handler) RegisterHuma(api huma.API) {
 			return nil, cameraHumaErr(err)
 		}
 		return &cameraOutput{Body: httpx.Envelope[Camera]{Code: httpx.CodeOK, Msg: "ok", Data: *c}}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "preview-cameras", Method: http.MethodGet, Path: "/preview/cameras",
+		Summary:     "实时预览设备列表",
+		Description: "实时预览页左侧列表：一次返回全部摄像机（不分页），停用设备也会返回并带 enabled=false。",
+		Tags:        []string{"Preview"}, Security: platformhttp.BearerSecurity(),
+	}, func(ctx context.Context, in *previewCamerasInput) (*previewOutput, error) {
+		items, err := h.svc.PreviewList(ctx, in.Keyword)
+		if err != nil {
+			return nil, cameraHumaErr(err)
+		}
+		return &previewOutput{Body: httpx.Envelope[previewChannelList]{
+			Code: httpx.CodeOK, Msg: "ok",
+			Data: previewChannelList{Items: items, Total: len(items)},
+		}}, nil
 	})
 
 	huma.Register(api, huma.Operation{

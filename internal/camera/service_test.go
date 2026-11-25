@@ -90,3 +90,31 @@ func TestServiceListFilterAndPartialUpdate(t *testing.T) {
 		t.Errorf("deleted camera should be gone: %v", err)
 	}
 }
+
+// PreviewList 不分页、包含停用设备，并支持关键字过滤。
+func TestServicePreviewList(t *testing.T) {
+	svc := NewService(NewMemStore())
+	ctx := context.Background()
+	off := false
+	for _, in := range []CameraInput{
+		{Name: "前门", RTSPURL: "rtsp://10.1.0.1/live"},
+		{Name: "后门", RTSPURL: "rtsp://10.1.0.2/live"},
+		{Name: "侧门", RTSPURL: "rtsp://10.1.0.3/live", Enabled: &off},
+	} {
+		if _, err := svc.Create(ctx, in); err != nil {
+			t.Fatalf("Create: %v", err)
+		}
+	}
+
+	items, err := svc.PreviewList(ctx, "")
+	if err != nil || len(items) != 3 {
+		t.Fatalf("preview list: err=%v items=%+v", err, items)
+	}
+	if items[2].Enabled {
+		t.Errorf("disabled camera should keep enabled=false: %+v", items[2])
+	}
+	filtered, err := svc.PreviewList(ctx, "侧门")
+	if err != nil || len(filtered) != 1 || filtered[0].Name != "侧门" {
+		t.Errorf("preview keyword filter: err=%v items=%+v", err, filtered)
+	}
+}

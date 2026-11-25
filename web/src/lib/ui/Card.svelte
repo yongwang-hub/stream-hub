@@ -27,7 +27,7 @@
   )}
 >
   {#if title || actions}
-    <header class="flex flex-wrap items-start justify-between gap-3 border-b border-border px-5 py-4">
+    <header class="flex shrink-0 flex-wrap items-start justify-between gap-3 border-b border-border px-5 py-4">
       <div>
         {#if title}<h3 class="text-base font-semibold text-foreground">{title}</h3>{/if}
         {#if description}<p class="mt-1 text-xs text-muted-foreground">{description}</p>{/if}
@@ -35,5 +35,5 @@
       {#if actions}<div class="flex items-center gap-2">{@render actions()}</div>{/if}
     </header>
   {/if}
-  <div class={cn('p-5', bodyClass)}>{@render children?.()}</div>
+  <div class={cn('min-h-0 p-5', bodyClass)}>{@render children?.()}</div>
 </section>

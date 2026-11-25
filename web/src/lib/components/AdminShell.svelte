@@ -7,18 +7,18 @@
   import defaultLogo from '../../assets/logo.png';
   import defaultAvatar from '../../assets/default-avatar.png';
   import CameraManage from './CameraManage.svelte';
+  import LivePreview from './LivePreview.svelte';
   import Monitor from './Monitor.svelte';
   import Roles from './Roles.svelte';
   import Users from './Users.svelte';
   import Settings from './Settings.svelte';
   import ChangePassword from './ChangePassword.svelte';
   import Icon from '../ui/Icon.svelte';
-  import { toast } from '../ui/toast.svelte';
   import { config } from '../systemConfig.svelte';
   import { cn } from '../utils';
   import { currentTheme, toggleThemeWithCircularReveal, type Theme } from '../theme';
 
-  type View = 'monitor' | 'cameras' | 'roles' | 'users' | 'settings';
+  type View = 'monitor' | 'preview' | 'cameras' | 'roles' | 'users' | 'settings';
 
   interface Props {
     onLogout: () => void;
@@ -42,23 +42,13 @@
   }
 
   // Vue 源码菜单项带快捷键 Alt+P（修改密码）/ Alt+Q（锁定屏幕）。
-  // 本项目未实现锁定屏幕，保留入口但给出提示，避免点击无反应。
-  function lockScreen(): void {
-    userMenuOpen = false;
-    toast.info('锁定屏幕功能暂未实现');
-  }
-
+  // 本项目不需要锁定屏幕（只保留修改密码入口），这里只响应 Alt+P。
   $effect(() => {
     const onKey = (e: KeyboardEvent): void => {
-      if (!e.altKey) return;
-      if (e.key.toLowerCase() === 'p') {
-        e.preventDefault();
-        userMenuOpen = false;
-        changePwdOpen = true;
-      } else if (e.key.toLowerCase() === 'q') {
-        e.preventDefault();
-        lockScreen();
-      }
+      if (!e.altKey || e.key.toLowerCase() !== 'p') return;
+      e.preventDefault();
+      userMenuOpen = false;
+      changePwdOpen = true;
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -157,14 +147,6 @@
                 <span class="flex-1">修改密码</span>
                 <span class="text-xs text-muted-foreground">Alt + P</span>
               </button>
-              <button
-                class="flex h-10 w-full items-center gap-3 px-4 text-left text-[14px] transition-colors hover:bg-muted"
-                onclick={lockScreen}
-              >
-                <Icon name="lock" size={17} />
-                <span class="flex-1">锁定屏幕</span>
-                <span class="text-xs text-muted-foreground">Alt + Q</span>
-              </button>
             </div>
             <div class="border-t border-border"></div>
             <div class="p-2">
@@ -190,13 +172,18 @@
       )}
     >
       <div class="flex-1 px-3 pb-4 pt-4">
-        {#if !collapsed}
-          <div class="px-3 pb-2 text-[14px] font-medium text-sidebar-muted">功能菜单</div>
-        {/if}
-
         <button class={itemClass(view === 'monitor', collapsed)} onclick={() => go('monitor')} title="系统监控">
           <Icon name="monitor" size={20} class={iconHover} />
           {#if !collapsed}<span>系统监控</span>{/if}
+        </button>
+
+        <button
+          class={cn(itemClass(view === 'preview', collapsed), 'mt-1')}
+          onclick={() => go('preview')}
+          title="实时预览"
+        >
+          <Icon name="eye" size={20} class={iconHover} />
+          {#if !collapsed}<span>实时预览</span>{/if}
         </button>
 
         <button
@@ -267,13 +254,16 @@
       </div>
     </aside>
 
-    <!-- 内容区：padding 12px / 左上圆角 10px / 上+左边框 / 无阴影 -->
+    <!-- 内容区：左右 24px、下 24px、上只留 16px（顶栏下方再往下压会显得顶空），左上圆角 10px / 上+左边框 / 无阴影 -->
     <main
-      class="ui-scroll min-w-0 flex-1 overflow-auto rounded-tl-[10px] border-l border-t border-border bg-background p-3 text-foreground"
+      class="ui-scroll min-w-0 flex-1 overflow-auto rounded-tl-[10px] border-l border-t border-border bg-background px-6 pb-6 pt-4 text-foreground"
     >
-      <div class="mx-auto flex min-h-full max-w-[1440px] flex-col ui-fade-in">
+      <!-- 铺满内容区：不再用 max-w-[1440px] 居中，否则宽屏下两侧会留出灰色空白 -->
+      <div class="flex min-h-full w-full flex-1 flex-col ui-fade-in">
         {#if view === 'monitor'}
           <Monitor />
+        {:else if view === 'preview'}
+          <LivePreview />
         {:else if view === 'cameras'}
           <CameraManage />
         {:else if view === 'roles'}

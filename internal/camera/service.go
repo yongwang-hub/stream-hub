@@ -39,6 +39,20 @@ func (s *Service) Get(ctx context.Context, id int64) (*Camera, error) {
 	return &c, nil
 }
 
+// PreviewList 返回实时预览用的设备列表：不分页（预览页左侧一次拉全），支持关键字过滤。
+// 停用的设备也返回（enabled=false），由前端灰显并禁止加入分屏，用户在预览页能看出“设备存在但已停用”。
+func (s *Service) PreviewList(ctx context.Context, keyword string) ([]PreviewChannel, error) {
+	rs, _, err := s.store.List(ctx, 0, 0, Filter{Keyword: strings.TrimSpace(keyword)})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]PreviewChannel, 0, len(rs))
+	for _, r := range rs {
+		out = append(out, PreviewChannel{ID: r.ID, Name: r.Name, RTSPURL: r.RTSPURL, Enabled: r.Enabled})
+	}
+	return out, nil
+}
+
 func (s *Service) Create(ctx context.Context, in CameraInput) (*Camera, error) {
 	name, rtspURL := strings.TrimSpace(in.Name), strings.TrimSpace(in.RTSPURL)
 	if err := validate(name, rtspURL); err != nil {

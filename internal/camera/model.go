@@ -29,6 +29,15 @@ type CameraInput struct {
 	Enabled *bool  `json:"enabled,omitempty"`
 }
 
+// PreviewChannel 是实时预览左侧列表的一项：只含预览需要的字段，不含分页/时间戳等管理信息。
+// 目前没有转码/HLS 网关，浏览器不能直接播 RTSP，前端只用它渲染占位窗口。
+type PreviewChannel struct {
+	ID      int64  `json:"id"`
+	Name    string `json:"name"`
+	RTSPURL string `json:"rtsp_url"`
+	Enabled bool   `json:"enabled"`
+}
+
 type record struct {
 	Camera
 }

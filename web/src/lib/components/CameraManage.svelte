@@ -4,10 +4,11 @@
   import { api, type Camera, type CameraInput } from '../api';
   import Badge from '../ui/Badge.svelte';
   import Button from '../ui/Button.svelte';
-  import Icon from '../ui/Icon.svelte';
+  import FilterField from '../ui/FilterField.svelte';
   import Modal from '../ui/Modal.svelte';
   import ListPage from '../ui/ListPage.svelte';
   import Pagination from '../ui/Pagination.svelte';
+  import Select from '../ui/Select.svelte';
   import { inputClass, labelClass, tableClass, thClass, tdClass, rowHoverClass } from '../ui/classes';
   import { toast } from '../ui/toast.svelte';
 
@@ -16,6 +17,12 @@
   let loading = $state(false);
   let page = $state(1);
   const pageSize = 20;
+  // 状态下拉固定三项：空串代表不过滤
+  const statusOptions = [
+    { value: '', label: '全部状态' },
+    { value: 'true', label: '启用' },
+    { value: 'false', label: '停用' },
+  ];
   const totalPages = $derived(Math.max(1, Math.ceil(total / pageSize)));
 
   // 搜索框是草稿，点“查询”才生效，避免每敲一个字符都请求一次。
@@ -129,19 +136,17 @@
 
 <ListPage>
   {#snippet filters()}
-    <div class="relative min-w-[200px] flex-1 md:max-w-xs">
-      <Icon name="search" size={15} class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-      <input class={`${inputClass} pl-9`} placeholder="搜索设备名称 / RTSP 地址" bind:value={draft.keyword} />
-    </div>
-    <div class="w-40 shrink-0">
-      <select class={inputClass} bind:value={draft.status}>
-        <option value="">全部状态</option>
-        <option value="true">启用</option>
-        <option value="false">停用</option>
-      </select>
-    </div>
-    <Button variant="outline" size="sm" onclick={() => void reset()}>重置</Button>
-    <Button size="sm" icon="search" onclick={() => void search()}>查询</Button>
+    <FilterField label="关键词">
+      <input class={inputClass} placeholder="设备名称 / RTSP 地址" bind:value={draft.keyword} />
+    </FilterField>
+    <FilterField label="状态">
+      <Select bind:value={draft.status} options={statusOptions} />
+    </FilterField>
+  {/snippet}
+
+  {#snippet filterActions()}
+    <Button variant="outline" onclick={() => void reset()}>重置</Button>
+    <Button onclick={() => void search()}>查询</Button>
   {/snippet}
 
   {#snippet toolbar()}
